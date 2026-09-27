@@ -1,0 +1,64 @@
+<resources>
+    <string name="app_name">Revyu</string>
+    <string name="notification_channel_smart_calendar">Smart Calendar reminders</string>
+    <string name="notification_channel_smart_calendar_desc">Reminds you about upcoming subjects with an unfinished Exam Mode</string>
+
+    <string name="widget_label">Revyu Schedule</string>
+    <string name="widget_description">Today\'s classes and study sessions at a glance.</string>
+    <string name="widget_placeholder_title">Revyu</string>
+    <string name="widget_tagline">Your classes, smarter.</string>
+    <string name="widget_now_label">NOW</string>
+    <string name="widget_minutes_left">%1$d min left</string>
+    <string name="widget_exam_start">Start Review →</string>
+    <string name="widget_next_label">NEXT</string>
+    <string name="widget_footer_viewall">View all →</string>
+    <string name="widget_footer_classes">%1$d classes today</string>
+    <string name="widget_footer_none">No classes today</string>
+    <string name="widget_pin_ok">Revyu widget added to home screen</string>
+
+    <!-- Next school calendar event footer line -->
+    <string name="widget_school_event_today">Next school event today</string>
+    <string name="widget_school_event_tomorrow">Next school event tomorrow</string>
+    <string name="widget_school_event_in">Next school event in %1$d days</string>
+
+    <!-- Interactive launcher practice widgets -->
+    <string name="practice_widget_label_flashcard">Revyu Flashcards</string>
+    <string name="practice_widget_desc_flashcard">Flip flashcards from your study sets on the home screen.</string>
+    <string name="practice_widget_label_question">Revyu Quiz</string>
+    <string name="practice_widget_desc_question">Answer multiple-choice questions right on your home screen.</string>
+    <string name="practice_widget_label_qna">Revyu Q\u0026A</string>
+    <string name="practice_widget_desc_qna">Test yourself with tap-to-reveal Q\u0026A from your sets.</string>
+    <string name="practice_widget_label_exam">Revyu Exam</string>
+    <string name="practice_widget_desc_exam">Take a full scored exam without opening the app.</string>
+
+    <string name="practice_widgets_section">Launcher practice widgets</string>
+    <string name="practice_widgets_section_hint">Add one and answer right on your home screen.</string>
+    <string name="practice_add">Add to home screen</string>
+    <string name="practice_add_schedule">Schedule</string>
+    <string name="practice_add_flashcard">Flashcard</string>
+    <string name="practice_add_question">Quiz</string>
+    <string name="practice_add_qna">Q\u0026A</string>
+    <string name="practice_add_exam">Exam</string>
+
+    <string name="practice_loading">Loading\u2026</string>
+    <string name="practice_flip_hint">Tap the card to flip</string>
+    <string name="practice_flip_back_hint">Tap again for the front</string>
+    <string name="practice_reveal_hint">Tap Reveal to check yourself</string>
+    <string name="practice_prev">Prev</string>
+    <string name="practice_next">Next</string>
+    <string name="practice_open">Open</string>
+    <string name="practice_new_round">New round</string>
+    <string name="practice_see_results">See results</string>
+    <string name="practice_check">Check</string>
+    <string name="practice_reveal">Reveal</string>
+    <string name="practice_submit">Submit</string>
+    <string name="practice_correct">Correct!</string>
+    <string name="practice_incorrect">Incorrect</string>
+    <string name="practice_answer">Answer: %1$s</string>
+    <string name="practice_score">Score: %1$d/%2$d \u00b7 %3$d%%</string>
+    <string name="practice_score_hint">Scores land in Recent Practice in the app.</string>
+    <string name="practice_pill_card">CARD %1$d/%2$d</string>
+    <string name="practice_pill_question">Q %1$d/%2$d</string>
+    <string name="practice_pill_exam">EXAM %1$d/%2$d</string>
+    <string name="practice_pill_done">DONE</string>
+</resources>

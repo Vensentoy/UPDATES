@@ -1,0 +1,36 @@
+# Gradle
+.gradle/
+build/
+
+# Android Studio / IntelliJ
+*.iml
+.idea/
+captures/
+.externalNativeBuild/
+.cxx/
+
+# Machine-specific SDK path
+local.properties
+
+# Local API keys / secrets (kept on disk, not published)
+secrets.properties
+
+# Signing
+*.jks
+*.keystore
+keystore.properties
+
+# Build outputs
+*.apk
+*.aab
+*.ap_
+*.dex
+output-metadata.json
+
+# Local scratch notes (kept on disk, not published)
+SchoolCalendar_Progress_2.md
+
+# OS
+.DS_Store
+Thumbs.db
+*.hprof

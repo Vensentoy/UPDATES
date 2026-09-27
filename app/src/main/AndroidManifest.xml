@@ -1,0 +1,110 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+
+    <application
+        android:name=".RevyuApplication"
+        android:allowBackup="true"
+        android:enableOnBackInvokedCallback="true"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.Revyu"
+        android:networkSecurityConfig="@xml/network_security_config">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:theme="@style/Theme.Revyu"
+            android:windowSoftInputMode="adjustResize">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!-- Lets the Reviewer PDF be shared/opened in other apps without exposing raw file:// paths -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="com.revyu.app.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+    <!-- Smart Calendar launcher widget -->
+        <receiver
+            android:name=".widget.RevyuWidgetProvider"
+            android:exported="false"
+            android:label="@string/widget_label">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/revyu_widget_info" />
+        </receiver>
+
+        <!-- Pin-confirmation callback for API 34+ -->
+        <receiver
+            android:name=".widget.WidgetPinResultReceiver"
+            android:exported="false" />
+
+        <!-- Interactive practice launcher widgets -->
+        <receiver
+            android:name=".widget.interactive.FlashcardWidgetProvider"
+            android:exported="false"
+            android:label="@string/practice_widget_label_flashcard">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/flashcard_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.interactive.QuestionWidgetProvider"
+            android:exported="false"
+            android:label="@string/practice_widget_label_question">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/question_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.interactive.QnAWidgetProvider"
+            android:exported="false"
+            android:label="@string/practice_widget_label_qna">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/qna_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.interactive.ExamWidgetProvider"
+            android:exported="false"
+            android:label="@string/practice_widget_label_exam">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/exam_widget_info" />
+        </receiver>
+
+    </application>
+
+</manifest>

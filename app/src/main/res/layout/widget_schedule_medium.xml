@@ -1,0 +1,397 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 4x2 smart-schedule widget: header + NOW + exam + footer. All sections live in every
+     layout; the renderer toggles visibility so it can fit smaller grids.
+     RemoteViews allow-list: spacers/dots/dividers must be TextView or ImageView, never a bare View/Space/ViewStub. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_root_bg"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:id="@+id/widget_header_cat"
+            android:layout_width="32dp"
+            android:layout_height="32dp"
+            android:contentDescription="@null"
+            android:scaleType="fitCenter"
+            android:src="@drawable/cat_orange_lay" />
+
+        <TextView
+            android:id="@+id/widget_header_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:text="@string/app_name"
+            android:textColor="#1B2A4A"
+            android:textSize="15sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:gravity="end"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_header_weekday"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#1B2A4A"
+                android:textSize="10sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_header_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="#666D7F"
+                android:textSize="10sp" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="5dp" />
+
+    <!-- NOW card -->
+    <LinearLayout
+        android:id="@+id/widget_now_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:background="@drawable/widget_card_bg"
+        android:orientation="vertical"
+        android:padding="11dp"
+        android:visibility="gone">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="4dp"
+                android:layout_height="4dp"
+                android:background="@drawable/widget_dot_navy"
+                android:layout_marginTop="3dp"
+                android:layout_marginEnd="6dp" />
+
+            <TextView
+                android:id="@+id/widget_now_pill"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:background="@drawable/widget_pill_bg"
+                android:paddingLeft="7dp"
+                android:paddingRight="7dp"
+                android:paddingTop="2dp"
+                android:paddingBottom="2dp"
+                android:text="@string/widget_now_label"
+                android:textColor="#FFFFFF"
+                android:textSize="9sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <TextView
+                android:id="@+id/widget_now_minutes"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="#666D7F"
+                android:textSize="10sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_now_title"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="6dp"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#1B2A4A"
+            android:textSize="14sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="5dp"
+            android:orientation="horizontal">
+
+            <ImageView
+                android:layout_width="14dp"
+                android:layout_height="14dp"
+                android:layout_marginTop="1dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_widget_clock" />
+
+            <TextView
+                android:id="@+id/widget_now_time"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:textColor="#666D7F"
+                android:textSize="11sp" />
+
+            <TextView
+                android:layout_width="0dp"
+                android:layout_height="1dp"
+                android:layout_weight="1" />
+
+            <ImageView
+                android:layout_width="16dp"
+                android:layout_height="16dp"
+                android:contentDescription="@null"
+                android:src="@drawable/ic_widget_book" />
+
+            <TextView
+                android:id="@+id/widget_now_chip_subject"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="4dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#1B2A4A"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <ImageView
+            android:id="@+id/widget_now_progress"
+            android:layout_width="match_parent"
+            android:layout_height="6dp"
+            android:layout_marginTop="9dp"
+            android:contentDescription="@null"
+            android:scaleType="fitXY"
+            android:src="@android:color/transparent" />
+    </LinearLayout>
+
+    <!-- Exam reminder card -->
+    <LinearLayout
+        android:id="@+id/widget_exam_card"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/widget_exam_card_bg"
+        android:orientation="horizontal"
+        android:padding="11dp"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="18dp"
+            android:layout_height="18dp"
+            android:layout_marginTop="2dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_widget_exam" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_exam_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#1B2A4A"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+
+            <TextView
+                android:id="@+id/widget_exam_prompt"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:textColor="#3C4A6B"
+                android:textSize="11sp" />
+        </LinearLayout>
+
+        <TextView
+            android:id="@+id/widget_exam_start"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/widget_button_bg"
+            android:gravity="center"
+            android:paddingLeft="10dp"
+            android:paddingRight="10dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:text="@string/widget_exam_start"
+            android:textColor="#FFFFFF"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- NEXT section -->
+    <LinearLayout
+        android:id="@+id/widget_next_section"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <TextView
+            android:id="@+id/widget_next_label"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:letterSpacing="0.08"
+            android:text="@string/widget_next_label"
+            android:textColor="#C9C2B4"
+            android:textSize="9sp"
+            android:textStyle="bold" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="7dp"
+            android:orientation="horizontal">
+
+            <TextView
+                android:layout_width="4dp"
+                android:layout_height="4dp"
+                android:layout_marginTop="5dp"
+                android:layout_marginEnd="8dp"
+                android:background="@drawable/widget_dot_navy" />
+
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/widget_next_time"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:textColor="#1B2A4A"
+                    android:textSize="12sp"
+                    android:textStyle="bold" />
+
+                <TextView
+                    android:id="@+id/widget_next_range"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="2dp"
+                    android:ellipsize="end"
+                    android:maxLines="1"
+                    android:textColor="#666D7F"
+                    android:textSize="11sp" />
+            </LinearLayout>
+
+            <TextView
+                android:id="@+id/widget_next_title"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                android:layout_weight="0.6"
+                android:ellipsize="end"
+                android:gravity="end"
+                android:maxLines="2"
+                android:textColor="#1B2A4A"
+                android:textSize="12sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="10dp"
+            android:background="#E7E2D6" />
+    </LinearLayout>
+
+    <!-- Footer -->
+    <LinearLayout
+        android:id="@+id/widget_footer_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:orientation="horizontal">
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_widget_calendar" />
+
+        <TextView
+            android:id="@+id/widget_footer_count"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:layout_weight="1"
+            android:textColor="#666D7F"
+            android:textSize="11sp" />
+
+        <TextView
+            android:id="@+id/widget_footer_viewall"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="@string/widget_footer_viewall"
+            android:textColor="#1B2A4A"
+            android:textSize="11sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+
+    <!-- Next school event -->
+    <LinearLayout
+        android:id="@+id/widget_school_event_row"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <ImageView
+            android:layout_width="14dp"
+            android:layout_height="14dp"
+            android:layout_marginTop="1dp"
+            android:contentDescription="@null"
+            android:src="@drawable/ic_widget_clock" />
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="6dp"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/widget_school_event_label"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#666D7F"
+                android:textSize="11sp" />
+
+            <TextView
+                android:id="@+id/widget_school_event_title"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:textColor="#1B2A4A"
+                android:textSize="11sp"
+                android:textStyle="bold" />
+        </LinearLayout>
+    </LinearLayout>
+</LinearLayout>
