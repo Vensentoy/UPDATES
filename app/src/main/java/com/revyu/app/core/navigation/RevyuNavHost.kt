@@ -217,7 +217,13 @@ fun RevyuNavHost(
 
             composable(RevyuDestinations.History) {
                 HistoryTabScreen(
-                    onOpenSettings = navigateToSettings
+                    onOpenSettings = navigateToSettings,
+                    onOpenResults = { studySetId, attemptId ->
+                        navController.navigate(RevyuDestinations.results(studySetId, attemptId))
+                    },
+                    onOpenStudySet = { studySetId ->
+                        navController.navigate(RevyuDestinations.studySetOverview(studySetId))
+                    }
                 )
             }
 
@@ -314,7 +320,12 @@ fun RevyuNavHost(
                     val wizardViewModel = rememberWizardViewModel(navController, backStackEntry, context)
                     UploadMaterialScreen(
                         viewModel = wizardViewModel,
-                        onNext = { navController.navigate(RevyuDestinations.CustomizeReviewer) }
+                        onNext = { navController.navigate(RevyuDestinations.CustomizeReviewer) },
+                        onOpenExistingStudySet = { studySetId ->
+                            navController.navigate(RevyuDestinations.studySetOverview(studySetId)) {
+                                popUpTo(RevyuDestinations.SmartCalendar)
+                            }
+                        }
                     )
                 }
 

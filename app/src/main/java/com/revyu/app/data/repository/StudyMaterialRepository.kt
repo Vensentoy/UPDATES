@@ -20,6 +20,9 @@ class StudyMaterialRepository(
 
     suspend fun getById(id: String): StudyMaterialEntity? = dao.getById(id)
 
+    suspend fun getByFileName(subjectId: String, fileName: String): StudyMaterialEntity? =
+        dao.getByFileName(subjectId, fileName)
+
     suspend fun uploadAndExtract(subjectId: String, uri: Uri, fileName: String): MaterialUploadResult {
         val extraction = extractor.extract(uri, fileName)
         val entity = StudyMaterialEntity(

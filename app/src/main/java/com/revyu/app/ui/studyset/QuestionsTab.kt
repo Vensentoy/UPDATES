@@ -19,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.revyu.app.core.theme.PassGreen
 import com.revyu.app.data.local.entities.QuestionEntity
 import com.revyu.app.ui.components.EmptyState
 import com.revyu.app.ui.components.MarginRuleCard
@@ -66,14 +67,14 @@ private fun PracticeQuestionCard(question: QuestionEntity) {
                 Text(
                     "Answer: ${question.correctAnswers.joinToString(", ")}",
                     style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.tertiary
+                    color = PassGreen
                 )
             } else {
                 Spacer(Modifier.height(6.dp))
                 Text(
                     "Tap to reveal answer",
                     style = MaterialTheme.typography.labelLarge,
-                    color = MaterialTheme.colorScheme.secondary
+                    color = MaterialTheme.colorScheme.primary
                 )
             }
         }

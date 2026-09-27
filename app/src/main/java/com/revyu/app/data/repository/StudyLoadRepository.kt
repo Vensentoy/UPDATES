@@ -52,6 +52,9 @@ class StudyLoadRepository(
 
     suspend fun getImportCount(): Int = studyLoadDao.count()
 
+    suspend fun getStudyLoadByFileName(fileName: String): StudyLoadEntity? =
+        studyLoadDao.getByFileName(fileName)
+
     suspend fun importParsedStudyLoad(
         report: StudyLoadParseReport,
         fileName: String,

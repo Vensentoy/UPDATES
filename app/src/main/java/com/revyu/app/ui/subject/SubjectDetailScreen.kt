@@ -183,7 +183,7 @@ private fun StudySetCard(
                         Text(
                             if (studySet.kind == StudySetKind.MIDTERM_VAULT) "SEMESTER VAULT · MIDTERM" else "SEMESTER VAULT · FINAL",
                             style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.secondary
+                            color = MaterialTheme.colorScheme.primary
                         )
                     }
                     Spacer(Modifier.height(6.dp))

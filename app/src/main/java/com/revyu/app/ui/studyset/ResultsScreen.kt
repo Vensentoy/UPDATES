@@ -84,57 +84,58 @@ fun ResultsScreen(
             Text("🐾", style = MaterialTheme.typography.headlineSmall)
         }
 
+        // Compact results box that doesn't fill vertical height
         MarginRuleCard(accentColor = if (isPassed) PassGreen else ErrorRust) {
-            Row(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
+                horizontalAlignment = Alignment.Start
             ) {
-                Column(
-                    modifier = Modifier.weight(1f),
-                    horizontalAlignment = Alignment.Start
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        "${attempt.scorePercentage.toInt()}%",
+                        style = MaterialTheme.typography.headlineLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Spacer(Modifier.width(12.dp))
+                    Surface(
+                        color = (if (isPassed) PassGreen else ErrorRust).copy(alpha = 0.15f),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
                         Text(
-                            "${attempt.scorePercentage.toInt()}%",
-                            style = MaterialTheme.typography.headlineLarge,
-                            color = MaterialTheme.colorScheme.onSurface
+                            viewModel.performanceLabel(attempt.scorePercentage),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = if (isPassed) PassGreen else ErrorRust,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
                         )
-                        Spacer(Modifier.width(10.dp))
-                        Surface(
-                            color = (if (isPassed) PassGreen else ErrorRust).copy(alpha = 0.15f),
-                            shape = RoundedCornerShape(8.dp)
-                        ) {
-                            Text(
-                                viewModel.performanceLabel(attempt.scorePercentage),
-                                style = MaterialTheme.typography.labelMedium,
-                                color = if (isPassed) PassGreen else ErrorRust,
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
-                            )
-                        }
-                    }
-                    Spacer(Modifier.height(10.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(20.dp)) {
-                        StatColumn("Total", attempt.totalQuestions.toString())
-                        StatColumn("Correct", attempt.correctCount.toString())
-                        StatColumn("Incorrect", attempt.incorrectCount.toString())
                     }
                 }
-                Spacer(Modifier.width(8.dp))
-                Image(
-                    painter = painterResource(id = catDrawable),
-                    contentDescription = "Revyu Mascot",
-                    modifier = Modifier
-                        .size(72.dp)
-                        .clip(RoundedCornerShape(12.dp))
-                        .background(Paper, RoundedCornerShape(12.dp)),
-                    contentScale = ContentScale.Fit
-                )
+                Spacer(Modifier.height(10.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(24.dp)) {
+                    StatColumn("Total", attempt.totalQuestions.toString())
+                    StatColumn("Correct", attempt.correctCount.toString())
+                    StatColumn("Incorrect", attempt.incorrectCount.toString())
+                }
             }
         }
 
         Spacer(Modifier.height(16.dp))
+
+        // Mascot cheer/study cat positioned below the results rectangle box
+        Image(
+            painter = painterResource(id = catDrawable),
+            contentDescription = "Revyu Mascot",
+            modifier = Modifier
+                .size(100.dp)
+                .align(Alignment.CenterHorizontally)
+                .clip(RoundedCornerShape(12.dp))
+                .background(Paper, RoundedCornerShape(12.dp)),
+            contentScale = ContentScale.Fit
+        )
+
+        Spacer(Modifier.height(16.dp))
+
         val incorrect = state.reviews.filter { !it.wasCorrect }
         if (incorrect.isNotEmpty()) {
             Text(

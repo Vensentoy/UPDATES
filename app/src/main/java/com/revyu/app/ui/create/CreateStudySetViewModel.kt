@@ -32,6 +32,7 @@ sealed class GenerationUiState {
 sealed class UploadUiState {
     data object Idle : UploadUiState()
     data object Uploading : UploadUiState()
+    data class ExistingStudySetFound(val studySetId: String, val message: String) : UploadUiState()
     data class Failed(val message: String) : UploadUiState()
 }
 
@@ -97,6 +98,24 @@ class CreateStudySetViewModel(
         uploadWarning = null
         viewModelScope.launch {
             try {
+                val existingMaterial = studyMaterialRepository.getByFileName(subjectId, fileName)
+                if (existingMaterial != null) {
+                    val existingStudySet = studySetRepository.getReadyByMaterialId(existingMaterial.id)
+                    if (existingStudySet != null) {
+                        selectedMaterial = existingMaterial
+                        uploadState = UploadUiState.ExistingStudySetFound(
+                            studySetId = existingStudySet.id,
+                            message = "A Study Set for this file already exists! Opening your existing Study Set..."
+                        )
+                        return@launch
+                    } else {
+                        selectedMaterial = existingMaterial
+                        uploadWarning = "Re-using previously extracted content for $fileName."
+                        uploadState = UploadUiState.Idle
+                        return@launch
+                    }
+                }
+
                 val result = studyMaterialRepository.uploadAndExtract(subjectId, uri, fileName)
                 selectedMaterial = result.material
                 uploadWarning = result.warning
@@ -110,6 +129,15 @@ class CreateStudySetViewModel(
     fun selectExistingMaterial(material: StudyMaterialEntity) {
         selectedMaterial = material
         uploadWarning = null
+        viewModelScope.launch {
+            val existingStudySet = studySetRepository.getReadyByMaterialId(material.id)
+            if (existingStudySet != null) {
+                uploadState = UploadUiState.ExistingStudySetFound(
+                    studySetId = existingStudySet.id,
+                    message = "A Study Set for this file already exists! Opening your existing Study Set..."
+                )
+            }
+        }
     }
 
     fun applyReviewerColumns(columns: Int) { reviewerColumns = columns }

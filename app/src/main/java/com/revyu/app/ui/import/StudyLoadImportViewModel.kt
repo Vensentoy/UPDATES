@@ -45,6 +45,7 @@ sealed class StudyLoadImportUiState {
         val subjects: List<ReviewableSubject>,
         val warnings: List<String>
     ) : StudyLoadImportUiState()
+    data class Duplicate(val fileName: String) : StudyLoadImportUiState()
     data class Error(val title: String, val message: String) : StudyLoadImportUiState()
 }
 
@@ -80,6 +81,11 @@ class StudyLoadImportViewModel(
         _state.value = StudyLoadImportUiState.Parsing
         viewModelScope.launch {
             try {
+                val existing = studyLoadRepository.getStudyLoadByFileName(fileName)
+                if (existing != null) {
+                    _state.value = StudyLoadImportUiState.Duplicate(fileName)
+                    return@launch
+                }
                 val extraction = extractor.extract(uri, fileName)
                 val report = StudyLoadParserRegistry.parse(extraction.text)
                 if (report == null) {

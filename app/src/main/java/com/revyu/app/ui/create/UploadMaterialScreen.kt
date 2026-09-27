@@ -20,10 +20,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.revyu.app.data.local.entities.StudyMaterialEntity
 import com.revyu.app.ui.components.EmptyState
@@ -37,7 +39,8 @@ import com.revyu.app.ui.components.SecondaryButton
 @Composable
 fun UploadMaterialScreen(
     viewModel: CreateStudySetViewModel,
-    onNext: () -> Unit
+    onNext: () -> Unit,
+    onOpenExistingStudySet: (String) -> Unit = {}
 ) {
     val filePicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.uploadMaterial(it) }
@@ -77,6 +80,14 @@ fun UploadMaterialScreen(
 
             when (val upload = viewModel.uploadState) {
                 is UploadUiState.Uploading -> LoadingState("Reading your file…")
+                is UploadUiState.ExistingStudySetFound -> {
+                    val context = LocalContext.current
+                    LaunchedEffect(upload.studySetId) {
+                        android.widget.Toast.makeText(context, upload.message, android.widget.Toast.LENGTH_LONG).show()
+                        onOpenExistingStudySet(upload.studySetId)
+                    }
+                    LoadingState("Opening existing Study Set…")
+                }
                 is UploadUiState.Failed -> {
                     ErrorBanner(upload.message)
                     Spacer(Modifier.height(12.dp))
@@ -154,7 +165,7 @@ fun WizardStepHeader(step: Int, total: Int, title: String) {
     Text(
         "STEP $step OF $total",
         style = MaterialTheme.typography.labelLarge,
-        color = MaterialTheme.colorScheme.secondary
+        color = MaterialTheme.colorScheme.primary
     )
     Text(title, style = MaterialTheme.typography.headlineMedium)
 }

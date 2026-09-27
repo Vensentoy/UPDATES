@@ -25,6 +25,9 @@ interface StudyLoadDao {
     @Delete
     suspend fun delete(studyLoad: StudyLoadEntity)
 
+    @Query("SELECT * FROM study_loads WHERE LOWER(TRIM(fileName)) = LOWER(TRIM(:fileName)) LIMIT 1")
+    suspend fun getByFileName(fileName: String): StudyLoadEntity?
+
     @Query("SELECT COUNT(*) FROM study_loads")
     suspend fun count(): Int
 }

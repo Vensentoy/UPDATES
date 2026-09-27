@@ -31,6 +31,9 @@ class StudySetRepository(
 
     suspend fun getById(id: String): StudySetEntity? = studySetDao.getById(id)
 
+    suspend fun getReadyByMaterialId(materialId: String): StudySetEntity? =
+        studySetDao.getReadyByMaterialId(materialId)
+
     suspend fun getAllOnce(): List<StudySetEntity> = studySetDao.getAllOnce()
 
     fun observeAllStudySets(): Flow<List<StudySetEntity>> = studySetDao.observeAll()
@@ -52,6 +55,9 @@ class StudySetRepository(
 
     fun observeExamAttempts(studySetId: String): Flow<List<ExamAttemptEntity>> =
         examAttemptDao.observeForStudySet(studySetId)
+
+    fun observeAllSubmittedAttempts(): Flow<List<ExamAttemptEntity>> =
+        examAttemptDao.observeAllSubmitted()
 
     suspend fun getExamAttempt(attemptId: String): ExamAttemptEntity? = examAttemptDao.getById(attemptId)
 

@@ -28,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.NavHostController
 import com.revyu.app.di.LocalAppContainer
 import com.revyu.app.di.viewModelFactory
@@ -108,6 +109,19 @@ fun StudyLoadImportScreen(
 
             is StudyLoadImportUiState.Saving -> {
                 LoadingState("Saving your schedule…")
+            }
+
+            is StudyLoadImportUiState.Duplicate -> {
+                val message = "This Study Load (${s.fileName}) has already been imported!"
+                LaunchedEffect(s.fileName) {
+                    android.widget.Toast.makeText(context, message, android.widget.Toast.LENGTH_LONG).show()
+                    navController.navigate(com.revyu.app.core.navigation.RevyuDestinations.Reviewer) {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                    }
+                    viewModel.dismissError()
+                }
+                LoadingState("Redirecting to Reviewer…")
             }
 
             is StudyLoadImportUiState.Error -> {

@@ -15,6 +15,9 @@ interface StudyMaterialDao {
     @Query("SELECT * FROM study_materials WHERE id = :id")
     suspend fun getById(id: String): StudyMaterialEntity?
 
+    @Query("SELECT * FROM study_materials WHERE subjectId = :subjectId AND LOWER(TRIM(fileName)) = LOWER(TRIM(:fileName)) LIMIT 1")
+    suspend fun getByFileName(subjectId: String, fileName: String): StudyMaterialEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(material: StudyMaterialEntity): Long
 }

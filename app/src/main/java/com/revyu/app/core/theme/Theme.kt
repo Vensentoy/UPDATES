@@ -26,10 +26,10 @@ internal fun accentLightColorScheme(accent: AccentColor): androidx.compose.mater
         onPrimaryContainer = p.onAccentContainer,
         inversePrimary = p.accentDark,
 
-        secondary = p.accentDark,
-        onSecondary = p.onAccentDark,
-        secondaryContainer = p.accentContainerDark,
-        onSecondaryContainer = p.onAccentContainerDark,
+        secondary = p.accent,
+        onSecondary = p.onAccent,
+        secondaryContainer = p.accentContainer,
+        onSecondaryContainer = p.onAccentContainer,
 
         tertiary = p.accent,
         onTertiary = Paper,

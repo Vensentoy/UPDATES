@@ -38,6 +38,7 @@ import com.revyu.app.data.local.entities.QuestionType
 import com.revyu.app.di.LocalAppContainer
 import com.revyu.app.di.viewModelFactory
 import com.revyu.app.ui.components.LoadingState
+import com.revyu.app.ui.components.MarginRuleCard
 import com.revyu.app.ui.components.PrimaryButton
 import com.revyu.app.ui.components.SecondaryButton
 
@@ -75,7 +76,7 @@ fun ExamModeScreen(
         Text(
             "Question ${viewModel.currentIndex + 1} of ${viewModel.questions.size}",
             style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.secondary
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Spacer(Modifier.height(6.dp))
         LinearProgressIndicator(
@@ -86,9 +87,13 @@ fun ExamModeScreen(
 
         val question = viewModel.currentQuestion
         if (question != null) {
-            QuestionPrompt(question)
-            Spacer(Modifier.height(16.dp))
-            AnswerInput(question = question, viewModel = viewModel)
+            MarginRuleCard(accentColor = MaterialTheme.colorScheme.primary) {
+                Column {
+                    QuestionPrompt(question)
+                    Spacer(Modifier.height(16.dp))
+                    AnswerInput(question = question, viewModel = viewModel)
+                }
+            }
         }
 
         Spacer(Modifier.weight(1f))

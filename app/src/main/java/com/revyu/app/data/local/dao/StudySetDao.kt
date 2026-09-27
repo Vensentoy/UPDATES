@@ -21,6 +21,9 @@ interface StudySetDao {
     @Query("SELECT * FROM study_sets WHERE id = :id")
     suspend fun getById(id: String): StudySetEntity?
 
+    @Query("SELECT * FROM study_sets WHERE sourceMaterialId = :materialId AND generationStatus = 'READY' LIMIT 1")
+    suspend fun getReadyByMaterialId(materialId: String): StudySetEntity?
+
     @Query("SELECT * FROM study_sets")
     suspend fun getAllOnce(): List<StudySetEntity>
 

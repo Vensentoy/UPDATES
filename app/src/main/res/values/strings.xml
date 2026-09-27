@@ -61,4 +61,15 @@
     <string name="practice_pill_question">Q %1$d/%2$d</string>
     <string name="practice_pill_exam">EXAM %1$d/%2$d</string>
     <string name="practice_pill_done">DONE</string>
+
+    <!-- Performance labels -->
+    <string name="performance_excellent">Excellent</string>
+    <string name="performance_good">Good</string>
+    <string name="performance_fair">Fair</string>
+    <string name="performance_needs_review">Needs Review</string>
+
+    <!-- Duplicate prevention messages -->
+    <string name="duplicate_study_load_msg">This Study Load (%1$s) has already been imported!</string>
+    <string name="duplicate_material_study_set_msg">A Study Set for this file already exists! Opening your existing Study Set…</string>
+    <string name="duplicate_material_reuse_msg">Re-using previously extracted content for %1$s.</string>
 </resources>

@@ -45,6 +45,9 @@ interface ExamAttemptDao {
     @Query("SELECT * FROM exam_attempts WHERE studySetId = :studySetId ORDER BY startedAt DESC")
     fun observeForStudySet(studySetId: String): Flow<List<ExamAttemptEntity>>
 
+    @Query("SELECT * FROM exam_attempts WHERE submittedAt IS NOT NULL ORDER BY submittedAt DESC")
+    fun observeAllSubmitted(): Flow<List<ExamAttemptEntity>>
+
     @Query("SELECT * FROM exam_attempts WHERE studySetId = :studySetId ORDER BY startedAt DESC LIMIT 1")
     suspend fun getLatestForStudySet(studySetId: String): ExamAttemptEntity?
 
