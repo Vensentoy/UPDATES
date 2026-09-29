@@ -16,6 +16,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.revyu.app.core.theme.MarginRuleWidth
@@ -39,34 +40,32 @@ fun MarginRuleCard(
     onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
+    val density = androidx.compose.ui.platform.LocalDensity.current
+    val ruleWidthPx = with(density) { MarginRuleWidth.toPx() }
+
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .let { if (onClick != null) it.clickable(onClick = onClick) else it },
+            .let { if (onClick != null) it.clickable(onClick = onClick) else it }
+            .drawBehind {
+                drawRect(
+                    color = accentColor,
+                    topLeft = androidx.compose.ui.geometry.Offset.Zero,
+                    size = androidx.compose.ui.geometry.Size(ruleWidthPx, size.height)
+                )
+            },
         color = MaterialTheme.colorScheme.surface,
         shape = MaterialTheme.shapes.medium,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
     ) {
-        Row(
+        Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(IntrinsicSize.Min)
+                .padding(start = MarginRuleWidth + 12.dp, top = 16.dp, end = 16.dp, bottom = 16.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .width(MarginRuleWidth)
-                    .fillMaxHeight()
-                    .background(accentColor)
-            )
-            Box(
-                modifier = Modifier
-                    .weight(1f)
-                    .padding(16.dp)
-            ) {
-                content()
-            }
+            content()
         }
     }
 }

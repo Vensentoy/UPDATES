@@ -89,6 +89,9 @@ fun RevyuNavHost(
     val context = LocalContext.current
 
     val isLoggedIn by container.settingsRepository.isLoggedIn.collectAsState()
+    val initialStartDestination = remember {
+        if (container.settingsRepository.isLoggedIn.value) RevyuDestinations.SmartCalendar else RevyuDestinations.Opening
+    }
 
     val backStackEntry by navController.currentBackStackEntryAsState()
     val currentRoute = backStackEntry?.destination?.route
@@ -97,6 +100,14 @@ fun RevyuNavHost(
         currentRoute == RevyuDestinations.StudyLoadReview ||
         currentRoute == RevyuDestinations.SchoolCalendarPicker ||
         currentRoute == RevyuDestinations.SchoolCalendarReview
+
+    LaunchedEffect(isLoggedIn) {
+        if (!isLoggedIn && currentRoute != null && currentRoute != RevyuDestinations.Opening && currentRoute != RevyuDestinations.Login) {
+            navController.navigate(RevyuDestinations.Opening) {
+                popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
+            }
+        }
+    }
 
     Scaffold(
         modifier = Modifier.fillMaxSize(),
@@ -117,7 +128,7 @@ fun RevyuNavHost(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = if (isLoggedIn) RevyuDestinations.SmartCalendar else RevyuDestinations.Opening,
+            startDestination = initialStartDestination,
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(RevyuDestinations.Opening) {
@@ -132,7 +143,7 @@ fun RevyuNavHost(
                 LoginScreen(
                     onLoginSuccess = {
                         navController.navigate(RevyuDestinations.SmartCalendar) {
-                            popUpTo(RevyuDestinations.Opening) { inclusive = true }
+                            popUpTo(navController.graph.findStartDestination().id) { inclusive = true }
                         }
                     }
                 )

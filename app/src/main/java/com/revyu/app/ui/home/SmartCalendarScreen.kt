@@ -125,6 +125,9 @@ fun SmartCalendarContent(
             settings = state.settings
         )
 
+        val startOfWeek = state.today.minusDays((state.today.dayOfWeek.value - 1).toLong())
+        val selectedDate = startOfWeek.plusDays((state.selectedDay.value - 1).toLong())
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -133,7 +136,7 @@ fun SmartCalendarContent(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                state.today.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.US)),
+                selectedDate.format(DateTimeFormatter.ofPattern("EEEE, MMMM d", Locale.US)),
                 style = MaterialTheme.typography.titleMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -147,7 +150,7 @@ fun SmartCalendarContent(
         WeekStrip(
             selectedDay = state.selectedDay,
             days = state.days,
-            today = state.today.dayOfWeek,
+            todayDate = state.today,
             onSelect = onSelectDay,
             modifier = Modifier.padding(horizontal = 16.dp)
         )
@@ -182,9 +185,8 @@ fun SmartCalendarContent(
         val selected = state.days.firstOrNull { it.day == state.selectedDay }
         val classes = selected?.classes ?: emptyList()
         val suggestions = selected?.suggestions ?: emptyList()
+        val reminders = selected?.reminders ?: emptyList()
 
-        val daysDiff = (state.selectedDay.value - state.today.dayOfWeek.value + 7) % 7
-        val selectedDate = state.today.plusDays(daysDiff.toLong())
         val isWeekend = com.revyu.app.core.util.MotivationalMessages.isWeekend(selectedDate)
         val noClassText = com.revyu.app.core.util.MotivationalMessages.noClassMessage(selectedDate)
 
@@ -213,14 +215,14 @@ fun SmartCalendarContent(
                 }
             }
 
-            if (classes.isEmpty() && suggestions.isEmpty()) {
+            if (classes.isEmpty() && suggestions.isEmpty() && reminders.isEmpty()) {
                 item {
                     EmptyState(
                         title = if (isWeekend) "Happy Weekend!" else "No Classes Today",
                         body = noClassText
                     )
                 }
-            } else if (classes.isEmpty()) {
+            } else if (classes.isEmpty() && suggestions.isEmpty()) {
                 item {
                     Surface(
                         color = MaterialTheme.colorScheme.secondaryContainer,
@@ -237,11 +239,26 @@ fun SmartCalendarContent(
                 }
             }
 
+            if (reminders.isNotEmpty()) {
+                item {
+                    SectionLabel("School Events & Reminders")
+                }
+                items(reminders.size, key = { index -> "rem_${reminders[index].id}_$index" }) { index ->
+                    val event = reminders[index]
+                    EventCard(
+                        event = event,
+                        accent = HighlighterYellow,
+                        onClick = { event.subjectId?.let(onOpenSubject) }
+                    )
+                }
+            }
+
             if (classes.isNotEmpty()) {
                 item {
                     SectionLabel("Classes")
                 }
-                items(classes, key = { "cls_${it.id}" }) { event ->
+                items(classes.size, key = { index -> "cls_${classes[index].id}_$index" }) { index ->
+                    val event = classes[index]
                     EventCard(event, accent = MaterialTheme.colorScheme.primary, onClick = {
                         event.subjectId?.let(onOpenSubject)
                     })
@@ -252,7 +269,8 @@ fun SmartCalendarContent(
                 item {
                     SectionLabel("Suggested study")
                 }
-                items(suggestions, key = { "sug_${it.id}" }) { event ->
+                items(suggestions.size, key = { index -> "sug_${suggestions[index].id}_$index" }) { index ->
+                    val event = suggestions[index]
                     EventCard(
                         event = event,
                         accent = if (event.type == CalendarEventType.REVIEW) HighlighterYellow else PassGreen,
@@ -284,23 +302,24 @@ fun SmartCalendarContent(
 private fun WeekStrip(
     selectedDay: DayOfWeek,
     days: List<DaySchedule>,
-    today: DayOfWeek,
+    todayDate: LocalDate,
     onSelect: (DayOfWeek) -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val startOfWeek = todayDate.minusDays((todayDate.dayOfWeek.value - 1).toLong())
+
     LazyRow(
         modifier = modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         contentPadding = PaddingValues(horizontal = 24.dp, vertical = 4.dp)
     ) {
         items(DayOfWeek.values().toList(), key = { it.value }) { day ->
-            val schedule = days.firstOrNull { it.day == day }
-            val count = schedule?.totalCount ?: 0
+            val dayDate = startOfWeek.plusDays((day.value - 1).toLong())
             val isSelected = day == selectedDay
-            val isToday = day == today
+            val isToday = day == todayDate.dayOfWeek
             Surface(
                 modifier = Modifier
-                    .width(56.dp)
+                    .width(60.dp)
                     .clip(CircleShape),
                 shape = CircleShape,
                 color = if (isSelected) MaterialTheme.colorScheme.primary
@@ -320,9 +339,11 @@ private fun WeekStrip(
                     )
                     Spacer(Modifier.height(2.dp))
                     Text(
-                        if (count > 0) count.toString() else "",
-                        style = MaterialTheme.typography.labelMedium,
-                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary else PassGreen
+                        "${dayDate.dayOfMonth}",
+                        style = MaterialTheme.typography.labelLarge,
+                        color = if (isSelected) MaterialTheme.colorScheme.onPrimary
+                        else if (isToday) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.onSurface
                     )
                 }
             }
@@ -378,12 +399,16 @@ private fun EventCard(
     }
 }
 
-private fun selectedDayTitle(day: DayOfWeek, today: java.time.LocalDate): String =
-    when (day) {
-        today.dayOfWeek -> "Today"
-        today.plusDays(1).dayOfWeek -> "Tomorrow"
-        else -> day.getDisplayName(TextStyle.FULL, Locale.US)
+private fun selectedDayTitle(day: DayOfWeek, today: java.time.LocalDate): String {
+    val startOfWeek = today.minusDays((today.dayOfWeek.value - 1).toLong())
+    val date = startOfWeek.plusDays((day.value - 1).toLong())
+    val dateStr = date.format(DateTimeFormatter.ofPattern("MMM d", Locale.US))
+    return when (day) {
+        today.dayOfWeek -> "Today · ${day.getDisplayName(TextStyle.FULL, Locale.US)}, $dateStr"
+        today.plusDays(1).dayOfWeek -> "Tomorrow · ${day.getDisplayName(TextStyle.FULL, Locale.US)}, $dateStr"
+        else -> "${day.getDisplayName(TextStyle.FULL, Locale.US)}, $dateStr"
     }
+}
 
 @Preview(showBackground = true)
 @Composable

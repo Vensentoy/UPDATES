@@ -22,14 +22,14 @@ object DateTimeUtils {
         "${formatTime(startMinutes)} – ${formatTime(endMinutes)}"
 
     fun dayLabel(dayOfWeek: Int, short: Boolean = true): String =
-        DayOfWeek.of(dayOfWeek).getDisplayName(
+        DayOfWeek.of(dayOfWeek.coerceIn(1, 7)).getDisplayName(
             if (short) TextStyle.SHORT else TextStyle.FULL,
             Locale.US
         )
 
     /** Days from today (0 = today) until the next occurrence of the given weekday. */
     fun daysUntilNextOccurrence(dayOfWeek: Int, from: LocalDate = LocalDate.now()): Int {
-        val target = DayOfWeek.of(dayOfWeek)
+        val target = DayOfWeek.of(dayOfWeek.coerceIn(1, 7))
         var diff = target.value - from.dayOfWeek.value
         if (diff < 0) diff += 7
         return diff

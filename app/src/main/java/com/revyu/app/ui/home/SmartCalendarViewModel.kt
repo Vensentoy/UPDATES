@@ -19,9 +19,10 @@ import kotlinx.coroutines.flow.stateIn
 data class DaySchedule(
     val day: DayOfWeek,
     val classes: List<CalendarEvent>,
-    val suggestions: List<CalendarEvent>
+    val suggestions: List<CalendarEvent>,
+    val reminders: List<CalendarEvent> = emptyList()
 ) {
-    val totalCount: Int get() = classes.size + suggestions.size
+    val totalCount: Int get() = classes.size + suggestions.size + reminders.size
     val studyMinutes: Int get() = suggestions.sumOf { it.endMinute - it.startMinute }
 }
 
@@ -47,14 +48,22 @@ class SmartCalendarViewModel(
         appSettingsStore.settings,
         selectedDay
     ) { events, settings, day ->
+        val today = LocalDate.now(clock)
+        val startOfWeek = today.minusDays((today.dayOfWeek.value - 1).toLong())
         val days = DayOfWeek.values()
             .map { d ->
+                val dateForDay = startOfWeek.plusDays((d.value - 1).toLong())
                 DaySchedule(
                     day = d,
                     classes = events.filter { it.dayOfWeek == d && it.type == CalendarEventType.CLASS },
                     suggestions = events.filter {
                         it.dayOfWeek == d &&
                             (it.type == CalendarEventType.SUGGESTED_STUDY || it.type == CalendarEventType.REVIEW)
+                    },
+                    reminders = events.filter {
+                        it.dayOfWeek == d &&
+                            (it.type == CalendarEventType.REMINDER || it.type == CalendarEventType.EXAM) &&
+                            (it.eventDate == null || it.eventDate == dateForDay)
                     }
                 )
             }

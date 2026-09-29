@@ -30,8 +30,8 @@ object CalendarEventMappers {
     fun toDomain(event: CalendarEventEntity): CalendarEvent = CalendarEvent(
         id = event.id,
         subjectId = event.subjectId,
-        type = CalendarEventType.valueOf(event.type),
-        dayOfWeek = DayOfWeek.of(event.dayOfWeek),
+        type = runCatching { CalendarEventType.valueOf(event.type) }.getOrDefault(CalendarEventType.CLASS),
+        dayOfWeek = DayOfWeek.of(event.dayOfWeek.coerceIn(1, 7)),
         startMinute = event.startMinute,
         endMinute = event.endMinute,
         subjectName = event.subjectName,
