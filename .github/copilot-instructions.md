@@ -7,3 +7,4 @@
 - Support light and dark mode and all four accent colors (Orange, Green, Purple, Blue).
 - Keep touch targets at least 48dp. Keep changes minimal and do not refactor unrelated code.
 - After edits, run ./gradlew :app:compileDebugKotlin.
+- Study Set upgrade: follow docs/STUDY_SET_SPEC.md. Never add a Room column without a migration. Keep Semester Vault and widgets compiling.
