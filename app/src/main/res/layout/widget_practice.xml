@@ -1,0 +1,266 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Shared 4x2 interactive practice widget (Flashcard / Quiz / Q&A / Exam).
+     Every section used by any type lives here; the renderer toggles visibility so the
+     exact same layout serves all four widget types. RemoteViews allow-list respected:
+     all spacers/dots/separators are TextView or ImageView, never a bare View. -->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/widget_root_bg"
+    android:orientation="vertical"
+    android:padding="10dp">
+
+    <!-- Header -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <ImageView
+            android:layout_width="16dp"
+            android:layout_height="16dp"
+            android:contentDescription="@null"
+            android:layout_marginEnd="6dp"
+            android:src="@drawable/ic_widget_book" />
+
+        <TextView
+            android:id="@+id/widget_practice_header_title"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:text="@string/app_name"
+            android:textColor="#1B2A4A"
+            android:textSize="12sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_practice_header_pill"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/widget_pill_bg"
+            android:paddingLeft="7dp"
+            android:paddingRight="7dp"
+            android:paddingTop="2dp"
+            android:paddingBottom="2dp"
+            android:textColor="#FFFFFF"
+            android:textSize="9sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <!-- Prompt / question / card face -->
+    <TextView
+        android:id="@+id/widget_practice_prompt"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1"
+        android:layout_marginTop="8dp"
+        android:background="@drawable/widget_card_bg"
+        android:ellipsize="end"
+        android:gravity="center_vertical"
+        android:maxLines="3"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingTop="6dp"
+        android:paddingBottom="6dp"
+        android:textColor="#3C4A6B"
+        android:textSize="12sp"
+        android:textStyle="bold" />
+
+    <!-- Option rows (Quiz + Exam choice questions) -->
+    <LinearLayout
+        android:id="@+id/widget_option_row_1"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/widget_option_icon_1"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:layout_marginEnd="5dp"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:id="@+id/widget_option_text_1"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#666D7F"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_option_row_2"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/widget_option_icon_2"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:layout_marginEnd="5dp"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:id="@+id/widget_option_text_2"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#666D7F"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_option_row_3"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/widget_option_icon_3"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:layout_marginEnd="5dp"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:id="@+id/widget_option_text_3"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#666D7F"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/widget_option_row_4"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <ImageView
+            android:id="@+id/widget_option_icon_4"
+            android:layout_width="12dp"
+            android:layout_height="12dp"
+            android:layout_marginEnd="5dp"
+            android:contentDescription="@null" />
+
+        <TextView
+            android:id="@+id/widget_option_text_4"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:ellipsize="end"
+            android:maxLines="1"
+            android:textColor="#666D7F"
+            android:textSize="11sp" />
+    </LinearLayout>
+
+    <!-- Revealed answer (Q&A + Exam typed questions) -->
+    <TextView
+        android:id="@+id/widget_practice_answer"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="5dp"
+        android:background="@drawable/widget_card_bg"
+        android:ellipsize="end"
+        android:maxLines="2"
+        android:paddingLeft="12dp"
+        android:paddingRight="12dp"
+        android:paddingTop="5dp"
+        android:paddingBottom="5dp"
+        android:textColor="#1B2A4A"
+        android:textSize="10sp"
+        android:visibility="gone" />
+
+    <!-- Hint / feedback line -->
+    <TextView
+        android:id="@+id/widget_practice_feedback"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="3dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:textColor="#666D7F"
+        android:textSize="10sp"
+        android:textStyle="bold"
+        android:visibility="gone" />
+
+    <!-- Footer -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="7dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal">
+
+        <TextView
+            android:id="@+id/widget_practice_prev"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingLeft="8dp"
+            android:paddingRight="8dp"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp"
+            android:text="@string/practice_prev"
+            android:textColor="#1B2A4A"
+            android:textSize="10sp"
+            android:textStyle="bold"
+            android:visibility="invisible" />
+
+        <TextView
+            android:layout_width="0dp"
+            android:layout_height="1dp"
+            android:layout_weight="1" />
+
+        <TextView
+            android:id="@+id/widget_practice_open"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:paddingLeft="8dp"
+            android:paddingRight="8dp"
+            android:paddingTop="5dp"
+            android:paddingBottom="5dp"
+            android:text="@string/practice_open"
+            android:textColor="#1B2A4A"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+
+        <TextView
+            android:id="@+id/widget_practice_next"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:background="@drawable/widget_button_bg"
+            android:gravity="center"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
+            android:text="@string/practice_next"
+            android:textColor="#FFFFFF"
+            android:textSize="10sp"
+            android:textStyle="bold" />
+    </LinearLayout>
+</LinearLayout>

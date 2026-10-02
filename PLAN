@@ -1,0 +1,19 @@
+Plan is locked. Final blueprint for build mode:
+Deliverables
+1. Data: app/src/main/assets/llcc_calendar/llcc_AY2026-2027.json
+- { academicYear: "2026-2027", events: [{ semester: "FIRST"|"SECOND", date: "YYYY-MM-DD", title }] }, kotlinx-serialization idiomatic structure
+- All rows included (faculty-internal + month-only on the 1st), per the transcribed list above
+- Multi-day: ≤7 days → one event per day (Midterm/Final Exams, Intramurals, Changing/Dropping, Enrollment, Clearance, Maundy–Black Sat, RING HOP window), >7 days → single row at start with range in title (Admission 02-01, Enrollment 05-11, Semester Break 10-19, Christmas Vacation 12-21, Grad Processing 01-20, Oath of Candidacy 03-15)
+2. core/util/schoolcalendar/BundledSchoolCalendar.kt
+- Reads asset; fuzzy AY match (2026-2027, 2026/2027, 26-27, 2026) + semester match (First/1st/1→FIRST, Second/2nd/2→SECOND); returns List<ParsedSchoolCalendarEvent> or null
+3. SchoolCalendarRepository.ensureBundledCalendar(institution, semester, academicYear)
+- Gate: institution contains llcc (case-insensitive)
+- Reuses importParsedCalendar → same school_calendar-* replace + isCustom=true REMINDER rows
+- Idempotency: DataStore key seeded_calendar_version = AY|semester; skips when unchanged, silent reseed on new term
+4. StudyLoadRepository.importParsedStudyLoad()
+- After commit → ensureBundledCalendar(...); returns how many school dates were seeded so the import result can surface an info line
+5. Import-review UI (StudyLoadReviewScreen/ImportScreen) — info line: "LLCC calendar applied: N school dates" or "No matching calendar — upload yours" → links to existing SchoolCalendarImportGraphPattern
+6. Manual upload/OCR/review screens — untouched, kept as fallback
+7. Tests — BundledSchoolCalendarTest: asset parses, AY/semester fuzzy match, no-match→null; ensureBundledCalendar idempotency (no reseed same version, reseed on change)
+Good to execute whenever you flip me out of plan mode
+No open questions remain — the JSON list, policy, matching, and reseed behavior are all confirmed. Once in build mode I'll start with the re-clone of Vensentoy/2.9 (current disk copy lacks our theme work), then implement in the order above.
