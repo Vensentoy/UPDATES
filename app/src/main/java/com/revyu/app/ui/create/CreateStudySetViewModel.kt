@@ -9,7 +9,9 @@ import androidx.lifecycle.viewModelScope
 import com.revyu.app.core.util.ExtractionStatus
 import com.revyu.app.core.util.RevyuResult
 import com.revyu.app.core.util.UriUtils
+import com.revyu.app.data.local.entities.DifficultyMix
 import com.revyu.app.data.local.entities.QuestionType
+import com.revyu.app.data.local.entities.ReviewerDetail
 import com.revyu.app.data.local.entities.ReviewerFontStyle
 import com.revyu.app.data.local.entities.ReviewerMargins
 import com.revyu.app.data.local.entities.StudyMaterialEntity
@@ -18,7 +20,10 @@ import com.revyu.app.data.repository.GenerationRepository
 import com.revyu.app.data.repository.StudyMaterialRepository
 import com.revyu.app.data.repository.StudySetRepository
 import com.revyu.app.data.repository.SubjectRepository
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -33,7 +38,7 @@ sealed class GenerationUiState {
 sealed class UploadUiState {
     data object Idle : UploadUiState()
     data object Uploading : UploadUiState()
-    data class ExistingStudySetFound(val studySetId: String, val message: String) : UploadUiState()
+    data class ExistingStudySetsFound(val count: Int, val latestStudySetId: String) : UploadUiState()
     data class Failed(val message: String) : UploadUiState()
 }
 
@@ -76,9 +81,19 @@ class CreateStudySetViewModel(
         private set
     var reviewerMargins by mutableStateOf(ReviewerMargins.NORMAL)
         private set
+    var reviewerDetail by mutableStateOf(ReviewerDetail.STANDARD)
+        private set
+    var flashcardCount by mutableStateOf(20)
+        private set
+    var difficultyMix by mutableStateOf(DifficultyMix.BALANCED)
+        private set
+    var rewriteReviewer by mutableStateOf(false)
+        private set
+    var variationIndex by mutableStateOf(0)
+        private set
 
     // Practice widget customization
-    var maxQuestions by mutableStateOf(15)
+    var maxQuestions by mutableStateOf(30)
         private set
     var selectedQuestionTypes by mutableStateOf(setOf(QuestionType.SINGLE_CHOICE, QuestionType.TRUE_FALSE))
         private set
@@ -109,19 +124,29 @@ class CreateStudySetViewModel(
             try {
                 val existingMaterial = studyMaterialRepository.getByFileName(subjectId, fileName)
                 if (existingMaterial != null) {
-                    val existingStudySet = studySetRepository.getReadyByMaterialId(existingMaterial.id)
-                    if (existingStudySet != null) {
-                        selectedMaterial = existingMaterial
-                        uploadState = UploadUiState.ExistingStudySetFound(
-                            studySetId = existingStudySet.id,
-                            message = "A Study Set for this file already exists! Opening your existing Study Set..."
-                        )
-                        return@launch
+                    // Check if content hash matches - if not, treat as new material
+                    val newContentHash = computeContentHash(uri)
+                    if (existingMaterial.contentHash != null && existingMaterial.contentHash == newContentHash) {
+                        // Same content - check for sibling study sets
+                        val siblings = studySetRepository.getSiblingsForMaterial(subjectId, existingMaterial.id)
+                        if (siblings.isNotEmpty()) {
+                            val latest = siblings.maxByOrNull { it.createdAt }!!
+                            selectedMaterial = existingMaterial
+                            variationIndex = siblings.size
+                            uploadState = UploadUiState.ExistingStudySetsFound(
+                                count = siblings.size,
+                                latestStudySetId = latest.id
+                            )
+                            return@launch
+                        } else {
+                            selectedMaterial = existingMaterial
+                            uploadWarning = "Re-using previously extracted content for $fileName."
+                            uploadState = UploadUiState.Idle
+                            return@launch
+                        }
                     } else {
-                        selectedMaterial = existingMaterial
-                        uploadWarning = "Re-using previously extracted content for $fileName."
-                        uploadState = UploadUiState.Idle
-                        return@launch
+                        // Same filename but different content - treat as new material
+                        uploadWarning = "File name matches an existing upload, but content differs. Creating new material."
                     }
                 }
 
@@ -135,15 +160,29 @@ class CreateStudySetViewModel(
         }
     }
 
+    private suspend fun computeContentHash(uri: Uri): String {
+        return withContext(Dispatchers.IO) {
+            val inputStream = context.contentResolver.openInputStream(uri) ?: return@withContext ""
+            val text = inputStream.bufferedReader().readText()
+            inputStream.close()
+            val normalized = text.replace(Regex("\\s+"), " ").trim()
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(normalized.toByteArray(Charsets.UTF_8))
+            digest.joinToString("") { "%02x".format(it) }
+        }
+    }
+
     fun selectExistingMaterial(material: StudyMaterialEntity) {
         selectedMaterial = material
         uploadWarning = null
         viewModelScope.launch {
-            val existingStudySet = studySetRepository.getReadyByMaterialId(material.id)
-            if (existingStudySet != null) {
-                uploadState = UploadUiState.ExistingStudySetFound(
-                    studySetId = existingStudySet.id,
-                    message = "A Study Set for this file already exists! Opening your existing Study Set..."
+            val siblings = studySetRepository.getSiblingsForMaterial(subjectId, material.id)
+            if (siblings.isNotEmpty()) {
+                val latest = siblings.maxByOrNull { it.createdAt }!!
+                variationIndex = siblings.size
+                uploadState = UploadUiState.ExistingStudySetsFound(
+                    count = siblings.size,
+                    latestStudySetId = latest.id
                 )
             }
         }
@@ -153,6 +192,10 @@ class CreateStudySetViewModel(
     fun applyReviewerFontStyle(style: ReviewerFontStyle) { reviewerFontStyle = style }
     fun setReviewerFontSize(sizeSp: Int) { reviewerFontSizeSp = sizeSp }
     fun applyReviewerMargins(margins: ReviewerMargins) { reviewerMargins = margins }
+    fun applyReviewerDetail(detail: ReviewerDetail) { reviewerDetail = detail }
+    fun applyFlashcardCount(count: Int) { flashcardCount = count }
+    fun applyDifficultyMix(mix: DifficultyMix) { difficultyMix = mix }
+    fun applyRewriteReviewer(rewrite: Boolean) { rewriteReviewer = rewrite }
 
     fun applyMaxQuestions(count: Int) { maxQuestions = count }
     fun toggleQuestionType(type: QuestionType) {

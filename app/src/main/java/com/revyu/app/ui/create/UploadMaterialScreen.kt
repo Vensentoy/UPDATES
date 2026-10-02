@@ -87,11 +87,9 @@ fun UploadMaterialScreen(
                         ExtractionStatus.Converting -> "Converting your PowerPoint…"
                     }
                 )
-                is UploadUiState.ExistingStudySetFound -> {
-                    val context = LocalContext.current
-                    LaunchedEffect(upload.studySetId) {
-                        android.widget.Toast.makeText(context, upload.message, android.widget.Toast.LENGTH_LONG).show()
-                        onOpenExistingStudySet(upload.studySetId)
+                is UploadUiState.ExistingStudySetsFound -> {
+                    LaunchedEffect(upload.latestStudySetId) {
+                        onOpenExistingStudySet(upload.latestStudySetId)
                     }
                     LoadingState("Opening existing Study Set…")
                 }
