@@ -30,7 +30,7 @@ data class ChatCompletionRequest(
     @SerialName("max_tokens") val maxTokens: Int = 12000,
     @SerialName("top_p") val topP: Double = 0.95,
     val reasoning: ReasoningConfig = ReasoningConfig(),
-    @SerialName("response_format") val responseFormat: ResponseFormat = ResponseFormat()
+    @SerialName("response_format") val responseFormat: ResponseFormat? = ResponseFormat()
 )
 
 @Serializable

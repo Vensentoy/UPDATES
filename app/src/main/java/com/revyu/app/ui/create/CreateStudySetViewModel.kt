@@ -86,6 +86,11 @@ class CreateStudySetViewModel(
     var generationState by mutableStateOf<GenerationUiState>(GenerationUiState.Idle)
         private set
 
+    var generationStep by mutableStateOf("Reading your file")
+        private set
+
+    private var activeGenerationStudySet: StudySetEntity? = null
+
     init {
         viewModelScope.launch {
             subjectRepository.getSubject(subjectId)?.let { subjectName = it.name }
@@ -174,25 +179,44 @@ class CreateStudySetViewModel(
         }
 
         generationState = GenerationUiState.InProgress
+        generationStep = "Reading your file"
         viewModelScope.launch {
             val title = "${SimpleDateFormat("MMM d", Locale.getDefault()).format(Date())} — ${material.fileName}"
-            val studySet = StudySetEntity(
-                subjectId = subjectId,
-                sourceMaterialId = material.id,
-                title = title,
-                reviewerColumns = reviewerColumns,
-                reviewerFontStyle = reviewerFontStyle,
-                reviewerFontSizeSp = reviewerFontSizeSp,
-                reviewerMargins = reviewerMargins,
-                questionLanguage = "English",
-                maxQuestions = maxQuestions,
-                questionTypes = selectedQuestionTypes.toList()
-            )
-            studySetRepository.insertStudySet(studySet)
+            val studySet = activeGenerationStudySet
+                ?.takeIf { it.sourceMaterialId == material.id }
+                ?: StudySetEntity(
+                    subjectId = subjectId,
+                    sourceMaterialId = material.id,
+                    title = title,
+                    reviewerColumns = reviewerColumns,
+                    reviewerFontStyle = reviewerFontStyle,
+                    reviewerFontSizeSp = reviewerFontSizeSp,
+                    reviewerMargins = reviewerMargins,
+                    questionLanguage = "English",
+                    maxQuestions = maxQuestions,
+                    questionTypes = selectedQuestionTypes.toList()
+                ).also {
+                    studySetRepository.insertStudySet(it)
+                    activeGenerationStudySet = it
+                }
 
-            when (val result = generationRepository.generateStudySet(studySet, subjectName, material.extractedText)) {
-                is RevyuResult.Success -> generationState = GenerationUiState.Success(studySet.id)
-                is RevyuResult.Error -> generationState = GenerationUiState.Failed(result.message, result.isRateLimit, result.isMissingApiKey)
+            when (val result = generationRepository.generateStudySet(
+                studySet = studySet,
+                subjectName = subjectName,
+                sourceText = material.extractedText,
+                onProgress = { generationStep = it }
+            )) {
+                is RevyuResult.Success -> {
+                    activeGenerationStudySet = result.data
+                    generationState = GenerationUiState.Success(studySet.id)
+                }
+                is RevyuResult.Error -> {
+                    activeGenerationStudySet = studySet.copy(
+                        generationStatus = com.revyu.app.data.local.entities.GenerationStatus.FAILED,
+                        generationError = result.message
+                    )
+                    generationState = GenerationUiState.Failed(result.message, result.isRateLimit, result.isMissingApiKey)
+                }
             }
         }
     }

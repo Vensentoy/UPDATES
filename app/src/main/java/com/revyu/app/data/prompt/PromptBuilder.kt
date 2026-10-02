@@ -1,110 +1,168 @@
 package com.revyu.app.data.prompt
 
 import com.revyu.app.data.local.entities.QuestionType
+import com.revyu.app.data.local.entities.DifficultyMix
+import com.revyu.app.data.local.entities.ReviewerDetail
 import com.revyu.app.data.remote.ChatMessage
+import com.revyu.app.data.remote.GeneratedOutline
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 object PromptBuilder {
+  private val json = Json { encodeDefaults = true }
 
-    /**
-     * Source text is truncated defensively — free-tier context and token budgets are
-     * finite, and a full textbook chapter dumped in raw is a common cause of 429s /
-     * truncated output. ~40k characters is a generous margin for a single reviewer's
-     * worth of material while leaving room for the response.
-     */
-    private const val MAX_SOURCE_CHARS = 40_000
-
-    /** Semester Vault legitimately aggregates several prior Study Sets, so it gets a larger budget. */
-    private const val MAX_VAULT_SOURCE_CHARS = 60_000
-
-    fun buildGenerationMessages(
+  fun buildOutlineMessages(
         subjectName: String,
         sourceText: String,
-        language: String,
-        maxQuestions: Int,
-        questionTypes: List<QuestionType>,
-        /** Non-null for a Semester Vault synthesis, e.g. "Midterm Exam" or "Final Exam". Null for a regular Study Set. */
-        vaultExamLabel: String? = null
+    language: String
     ): List<ChatMessage> {
-        val charBudget = if (vaultExamLabel != null) MAX_VAULT_SOURCE_CHARS else MAX_SOURCE_CHARS
-        val trimmedSource = if (sourceText.length > charBudget) sourceText.take(charBudget) else sourceText
-
-        val typesList = questionTypes.joinToString(", ") { it.name }
-        val minFlashcards = if (vaultExamLabel != null) 15 else 8
-
-        val sourceDescription = if (vaultExamLabel != null) {
-            "accumulated reviewer, flashcard, and question content from several of the student's prior Study Sets for this subject, covering everything to be tested on the $vaultExamLabel"
-        } else {
-            "the source material"
-        }
-
-        val system = """
-            You are the content engine inside Revyu, a study app for college students.
-            Given ${if (vaultExamLabel != null) "accumulated study content" else "raw study material"}, you produce ONE JSON object and nothing else —
-            no markdown code fences, no commentary before or after it.
-
-            The JSON object must have exactly this shape:
-            {
-              "reviewer": string,
-              "flashcards": [ { "front": string, "back": string } ],
-              "questions": [
-                {
-                  "type": one of [$typesList],
-                  "prompt": string,
-                  "options": [string],
-                  "correctAnswers": [string]
-                }
-              ]
-            }
-
-            Rules:
-            - The source material is Markdown converted from the student's file
-              (headings, lists, tables, slide or sheet separators). Read the
-              structure, but do not copy Markdown syntax into your output.
-            - "reviewer" is a well-organized study guide covering $sourceDescription,
-              written in $language, using plain text with clear section
-              headings (a heading on its own line, then its content) and short
-              paragraphs or bullet points. No markdown symbols like # or ** — headings
-              are conveyed by being short lines followed by a blank line.
-            ${if (vaultExamLabel != null) """
-            - This is a comprehensive $vaultExamLabel review: consolidate overlapping
-              topics from the different source Study Sets into one coherent guide
-              instead of just concatenating them, and make sure every distinct topic
-              across all the source content is represented.
-            """.trimIndent() else ""}
-            - Generate at least $minFlashcards flashcards covering the most important
-              concepts, definitions, and facts, front = term/question, back = answer.
-            - Generate up to $maxQuestions questions total, only using question types
-              from [$typesList].
-            - For type SINGLE_CHOICE: "options" has exactly 4 plausible choices,
-              "correctAnswers" has exactly 1 of those strings.
-            - For type MULTIPLE_CHOICE: "options" has 4-6 choices, "correctAnswers" has
-              2 or more of those strings.
-            - For type TRUE_FALSE: "options" is empty, "correctAnswers" is exactly
-              ["True"] or ["False"].
-            - For type IDENTIFICATION or SHORT_ANSWER: "options" is empty,
-              "correctAnswers" has exactly 1 concise expected answer.
-            - Base everything strictly on the provided source material. Do not invent
-              facts not supported by it.
-            - Keep "reviewer" focused (roughly 600-1000 words) so the whole JSON
-              object fits in the response without being cut off.
-            - Output must be valid JSON — escape quotes and newlines properly.
-              Your reply must start with { and end with }.
-        """.trimIndent()
-
-        val user = """
-            Subject: $subjectName
-
-            ${if (vaultExamLabel != null) "Accumulated source content (from multiple prior Study Sets):" else "Source material (Markdown):"}
-            ---
-            $trimmedSource
-            ---
-
-            Generate the ${if (vaultExamLabel != null) "$vaultExamLabel Study Set" else "Study Set"} JSON now.
-        """.trimIndent()
-
-        return listOf(
-            ChatMessage(role = "system", content = system),
-            ChatMessage(role = "user", content = user)
+    return messages(
+      system = """
+        Create a concise topic outline for a college Study Set. Reply with JSON only:
+        {"topics":[{"id":"t1","title":"string","importance":1,"keyPoints":["string"],"terms":["string"]}]}
+        Use importance 1 for supporting, 2 for important, and 3 for core topics. Use stable short ids.
+        Merge repeated ideas within this source group. Write titles and content in $language.
+        Only include topics and facts supported by the source.
+      """.trimIndent(),
+      subjectName = subjectName,
+      sourceLabel = "Source group (Markdown)",
+      sourceText = sourceText
         )
     }
+
+  fun buildReviewerMessages(
+    subjectName: String,
+    sourceText: String,
+    language: String,
+    detail: ReviewerDetail,
+    outline: GeneratedOutline?,
+    vaultExamLabel: String? = null
+  ): List<ChatMessage> {
+    val budget = when (detail) {
+      ReviewerDetail.CONCISE -> "500-900 words"
+      ReviewerDetail.STANDARD -> "900-1800 words"
+      ReviewerDetail.DETAILED -> "1800-3500 words"
+    }
+    val topics = outline?.let { json.encodeToString(it) } ?: "No outline supplied; derive sections from the excerpts."
+    val vaultInstruction = vaultExamLabel?.let {
+      "This is a comprehensive $it reviewer. Consolidate overlapping concepts and cover each distinct topic."
+    }.orEmpty()
+    return messages(
+      system = """
+        You are writing a source-grounded college reviewer for Revyu. Return one valid JSON object only:
+        {"title":"string","overview":"3-5 sentences","sections":[{"topicId":"t1","heading":"string","blocks":[{"type":"PARAGRAPH","text":"string"}]}],"glossary":[{"term":"string","meaning":"string"}],"cheatSheet":["one-line fact"]}
+        Write in $language and target $budget for the whole reviewer; hard cap 3500 words.
+        Every section starts with one PARAGRAPH sentence, then useful blocks, and ends with exactly one
+        CALLOUT with kind REMEMBER. Use only these block types: PARAGRAPH, BULLETS, STEPS, DEFINITION,
+        CALLOUT, TABLE, FORMULA. Use DEFINITION for bold-worthy terms, TABLE only for real comparisons,
+        STEPS only for real sequences. CheatSheet has 8-12 concise facts. Do not use Markdown markers.
+        Every claim must be supported by the provided source. $vaultInstruction
+      """.trimIndent(),
+      subjectName = subjectName,
+      sourceLabel = "Relevant source excerpts",
+      sourceText = sourceText,
+      extra = "Outline topics:\n$topics"
+    )
+  }
+
+  fun buildFlashcardMessages(
+    subjectName: String,
+    sourceText: String,
+    language: String,
+    count: Int,
+    outline: GeneratedOutline?
+  ): List<ChatMessage> {
+    val topics = outline?.let { json.encodeToString(it) } ?: "No outline supplied. Cover the source proportionally."
+    return messages(
+      system = """
+        Generate exactly $count useful flashcards in $language. Return JSON only:
+        {"flashcards":[{"front":"string","back":"string","hint":"string or empty","topicId":"t1","difficulty":1,"kind":"TERM|CONCEPT|COMPARE|PROCESS|FORMULA|CLOZE"}]}
+        Test one idea per card. Fronts are real questions or clear terms, never "Explain X in detail".
+        Keep each back to about 25 words. Mix definitions, why/how, compare/contrast, processes, formulas,
+        and cloze cards. Cover every topic, scaling card coverage with topic importance. Avoid duplicates
+        and cards that only restate another card's answer. Use only source-supported facts.
+      """.trimIndent(),
+      subjectName = subjectName,
+      sourceLabel = "Relevant source excerpts",
+      sourceText = sourceText,
+      extra = "Outline topics:\n$topics"
+    )
+  }
+
+  fun buildQuestionMessages(
+    subjectName: String,
+    sourceText: String,
+    language: String,
+    maxQuestions: Int,
+    questionTypes: List<QuestionType>,
+    difficultyMix: DifficultyMix,
+    outline: GeneratedOutline?,
+    vaultExamLabel: String? = null
+  ): List<ChatMessage> {
+    val types = questionTypes.joinToString(", ") { it.name }
+    val mix = when (difficultyMix) {
+      DifficultyMix.EASIER -> "50% easy, 35% medium, 15% hard"
+      DifficultyMix.BALANCED -> "30% easy, 50% medium, 20% hard; at least 30% APPLY or ANALYZE"
+      DifficultyMix.HARDER -> "15% easy, 45% medium, 40% hard"
+    }
+    val topics = outline?.let { json.encodeToString(it) } ?: "No outline supplied. Cover the source proportionally."
+    val vaultInstruction = vaultExamLabel?.let { "This is for a comprehensive $it assessment." }.orEmpty()
+    return messages(
+      system = """
+        Generate up to $maxQuestions questions in $language using only these types: $types. Return JSON only:
+        {"questions":[{"type":"SINGLE_CHOICE|MULTIPLE_CHOICE|TRUE_FALSE|IDENTIFICATION|SHORT_ANSWER","prompt":"string","options":["string"],"correctAnswers":["string"],"acceptedAnswers":["alternate wording"],"explanation":"1-2 sentences","topicId":"t1","difficulty":1,"level":"RECALL|UNDERSTAND|APPLY|ANALYZE"}]}
+        Difficulty distribution: $mix. At least 30% APPLY/ANALYZE in Balanced. Choice distractors should be
+        plausible, similar in grammar and length, and based on real misconceptions or neighboring source
+        concepts. Never use "all of the above" or "none of the above". Avoid absolute giveaway words.
+                Set difficulty to 1 for easy, 2 for medium, and 3 for hard.
+        Explain why the answer is right and, for choice questions, address the most tempting wrong option.
+        For IDENTIFICATION and SHORT_ANSWER, include a canonical answer and 2-4 accepted variants.
+        Cover every topic proportionally to its importance, vary question angles, and test distinct facts.
+        SINGLE_CHOICE has 4 options and 1 correct option. MULTIPLE_CHOICE has 4-6 options and at least 2
+        correct options. TRUE_FALSE has empty options and exactly True or False as its answer.
+        IDENTIFICATION/SHORT_ANSWER have empty options. $vaultInstruction
+      """.trimIndent(),
+      subjectName = subjectName,
+      sourceLabel = "Relevant source excerpts",
+      sourceText = sourceText,
+      extra = "Allowed types: $types\nOutline topics:\n$topics"
+    )
+  }
+
+  fun buildPlainReviewerMessages(subjectName: String, sourceText: String, language: String): List<ChatMessage> =
+    messages(
+      system = """
+        Write a well-organized plain-text study reviewer in $language. Use short headings on their own lines,
+        then concise paragraphs and bullet points. Do not return JSON or Markdown heading markers. Use only
+        facts supported by the source, and keep the reviewer useful for studying.
+      """.trimIndent(),
+      subjectName = subjectName,
+      sourceLabel = "Relevant source excerpts",
+      sourceText = sourceText
+    )
+
+  private fun messages(
+    system: String,
+    subjectName: String,
+    sourceLabel: String,
+    sourceText: String,
+    extra: String = ""
+  ): List<ChatMessage> = listOf(
+    ChatMessage(role = "system", content = system),
+    ChatMessage(
+      role = "user",
+      content = buildString {
+        appendLine("Subject: $subjectName")
+        if (extra.isNotBlank()) {
+          appendLine()
+          appendLine(extra)
+        }
+        appendLine()
+        appendLine("$sourceLabel:")
+        appendLine("---")
+        appendLine(sourceText)
+        appendLine("---")
+      }.trim()
+    )
+  )
 }

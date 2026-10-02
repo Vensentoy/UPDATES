@@ -46,6 +46,7 @@ fun GeneratingScreen(
 
     GeneratingContent(
         generationState = viewModel.generationState,
+        currentStep = viewModel.generationStep,
         onRetry = { viewModel.retryGeneration() },
         onDone = onDone,
         onBack = onBack,
@@ -59,7 +60,8 @@ fun GeneratingContent(
     onRetry: () -> Unit,
     onDone: (String) -> Unit,
     onBack: () -> Unit,
-    onOpenSettings: () -> Unit
+    onOpenSettings: () -> Unit,
+    currentStep: String = "Reading your file"
 ) {
     Column(
         modifier = Modifier
@@ -72,7 +74,7 @@ fun GeneratingContent(
     ) {
         when (generationState) {
             is GenerationUiState.Idle, is GenerationUiState.InProgress -> {
-                LoadingState("Nemotron is generating your Reviewer, flashcards, and questions. This can take a moment on the free tier…")
+                LoadingState("$currentStep. This can take a moment on the free tier…")
             }
             is GenerationUiState.Success -> {
                 LaunchedEffect(generationState.studySetId) { onDone(generationState.studySetId) }
