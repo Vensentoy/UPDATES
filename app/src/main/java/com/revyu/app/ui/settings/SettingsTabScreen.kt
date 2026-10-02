@@ -2,6 +2,7 @@ package com.revyu.app.ui.settings
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -37,6 +38,7 @@ import com.revyu.app.core.theme.RevyuTheme
 import com.revyu.app.di.LocalAppContainer
 import com.revyu.app.di.viewModelFactory
 import com.revyu.app.ui.components.MarginRuleCard
+import com.revyu.app.ui.components.ChipGroup
 import com.revyu.app.ui.components.SecondaryButton
 
 @Composable
@@ -78,6 +80,7 @@ fun SettingsTabScreen(onOpenApiKey: () -> Unit) {
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SettingsTabContent(
     settings: AppSettings,
@@ -132,13 +135,16 @@ fun SettingsTabContent(
                         SecondaryButton(
                             text = "Re-sync LLCC Calendar AY 2026–2027",
                             onClick = onResyncLlccCalendar,
-                            modifier = Modifier.fillMaxWidth()
+                            modifier = Modifier.fillMaxWidth(),
+                            buttonHeight = 64.dp,
+                            maxLines = 2
                         )
                     }
                     SecondaryButton(
                         text = "Log Out",
                         onClick = onLogout,
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier.fillMaxWidth(),
+                        buttonHeight = 64.dp
                     )
                 }
             }
@@ -147,29 +153,35 @@ fun SettingsTabContent(
             MarginRuleCard(accentColor = MaterialTheme.colorScheme.primary) {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Text("Theme mode", style = MaterialTheme.typography.titleMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChipGroup {
                         ThemeMode.entries.forEach { mode ->
                             FilterChip(
                                 selected = settings.themeMode == mode,
                                 onClick = { onSetThemeMode(mode) },
-                                label = { Text(mode.name.lowercase().replaceFirstChar { it.uppercase() }) }
+                                label = {
+                                    Text(
+                                        mode.name.lowercase().replaceFirstChar { it.uppercase() },
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                }
                             )
                         }
                     }
 
                     Text("Cat mascot & color theme", style = MaterialTheme.typography.titleMedium)
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    ChipGroup {
                         com.revyu.app.core.preferences.AccentColor.entries.forEach { accent ->
-                            val labelText = when (accent) {
-                                com.revyu.app.core.preferences.AccentColor.ORANGE -> "Orange (Orange Cat)"
-                                com.revyu.app.core.preferences.AccentColor.GREEN -> "Green (White Cat)"
-                                com.revyu.app.core.preferences.AccentColor.PURPLE -> "Purple (Tuxedo Cat)"
-                                com.revyu.app.core.preferences.AccentColor.BLUE -> "Blue (Tabby Cat)"
-                            }
                             FilterChip(
                                 selected = settings.accentColor == accent,
                                 onClick = { onSetAccentColor(accent) },
-                                label = { Text(accent.name.lowercase().replaceFirstChar { it.uppercase() }) }
+                                label = {
+                                    Text(
+                                        accent.name.lowercase().replaceFirstChar { it.uppercase() },
+                                        maxLines = 1,
+                                        softWrap = false
+                                    )
+                                }
                             )
                         }
                     }

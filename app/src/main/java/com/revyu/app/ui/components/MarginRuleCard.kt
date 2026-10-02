@@ -42,10 +42,12 @@ fun MarginRuleCard(
 ) {
     val density = androidx.compose.ui.platform.LocalDensity.current
     val ruleWidthPx = with(density) { MarginRuleWidth.toPx() }
+    val shape = MaterialTheme.shapes.medium
 
     Surface(
         modifier = modifier
             .fillMaxWidth()
+            .clip(shape)
             .let { if (onClick != null) it.clickable(onClick = onClick) else it }
             .drawBehind {
                 drawRect(
@@ -55,7 +57,7 @@ fun MarginRuleCard(
                 )
             },
         color = MaterialTheme.colorScheme.surface,
-        shape = MaterialTheme.shapes.medium,
+            shape = shape,
         tonalElevation = 0.dp,
         shadowElevation = 0.dp,
         border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)

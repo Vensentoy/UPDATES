@@ -2,12 +2,15 @@ package com.revyu.app.ui.create
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -24,6 +27,7 @@ import com.revyu.app.data.local.entities.ReviewerFontStyle
 import com.revyu.app.data.local.entities.ReviewerMargins
 import com.revyu.app.ui.components.PrimaryButton
 import com.revyu.app.ui.components.SecondaryButton
+import com.revyu.app.ui.components.ChipGroup
 
 @Composable
 fun CustomizeReviewerScreen(
@@ -45,6 +49,7 @@ fun CustomizeReviewerScreen(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CustomizeReviewerContent(
     reviewerColumns: Int,
@@ -65,54 +70,72 @@ fun CustomizeReviewerContent(
             .padding(horizontal = 24.dp)
             .padding(top = 24.dp, bottom = 24.dp)
     ) {
-        WizardStepHeader(step = 2, total = 4, title = "Customize your Reviewer")
-        Spacer(Modifier.height(20.dp))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+        ) {
+            WizardStepHeader(step = 2, total = 4, title = "Customize your Reviewer")
+            Spacer(Modifier.height(20.dp))
 
-        SettingLabel("Layout")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            listOf(1, 2, 3, 4).forEach { columns ->
-                FilterChip(
-                    selected = reviewerColumns == columns,
-                    onClick = { onApplyColumns(columns) },
-                    label = { Text(if (columns == 1) "1 column" else "$columns columns") }
-                )
+            SettingLabel("Layout")
+            ChipGroup {
+                listOf(1, 2, 3, 4).forEach { columns ->
+                    FilterChip(
+                        selected = reviewerColumns == columns,
+                        onClick = { onApplyColumns(columns) },
+                        label = {
+                            Text(
+                                if (columns == 1) "1 column" else "$columns columns",
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+            SettingLabel("Font style")
+            ChipGroup {
+                ReviewerFontStyle.entries.forEach { style ->
+                    FilterChip(
+                        selected = reviewerFontStyle == style,
+                        onClick = { onApplyFontStyle(style) },
+                        label = { Text(style.displayName, maxLines = 1, softWrap = false) }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+            SettingLabel("Font size — ${reviewerFontSizeSp}sp")
+            Slider(
+                value = reviewerFontSizeSp.toFloat(),
+                onValueChange = { onSetFontSize(it.toInt()) },
+                valueRange = 9f..18f,
+                steps = 8
+            )
+
+            Spacer(Modifier.height(20.dp))
+            SettingLabel("Margins")
+            ChipGroup {
+                ReviewerMargins.entries.forEach { margin ->
+                    FilterChip(
+                        selected = reviewerMargins == margin,
+                        onClick = { onApplyMargins(margin) },
+                        label = {
+                            Text(
+                                margin.name.lowercase().replaceFirstChar { c -> c.uppercase() },
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    )
+                }
             }
         }
 
-        Spacer(Modifier.height(20.dp))
-        SettingLabel("Font style")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ReviewerFontStyle.entries.forEach { style ->
-                FilterChip(
-                    selected = reviewerFontStyle == style,
-                    onClick = { onApplyFontStyle(style) },
-                    label = { Text(style.displayName) }
-                )
-            }
-        }
-
-        Spacer(Modifier.height(20.dp))
-        SettingLabel("Font size — ${reviewerFontSizeSp}sp")
-        Slider(
-            value = reviewerFontSizeSp.toFloat(),
-            onValueChange = { onSetFontSize(it.toInt()) },
-            valueRange = 9f..18f,
-            steps = 8
-        )
-
-        Spacer(Modifier.height(20.dp))
-        SettingLabel("Margins")
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            ReviewerMargins.entries.forEach { margin ->
-                FilterChip(
-                    selected = reviewerMargins == margin,
-                    onClick = { onApplyMargins(margin) },
-                    label = { Text(margin.name.lowercase().replaceFirstChar { c -> c.uppercase() }) }
-                )
-            }
-        }
-
-        Spacer(Modifier.weight(1f))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             SecondaryButton(text = "Back", onClick = onBack, modifier = Modifier.weight(1f))
             PrimaryButton(text = "Next", onClick = onNext, modifier = Modifier.weight(1f))
