@@ -1,7 +1,7 @@
 package com.revyu.app.data.prompt
 
-import com.revyu.app.data.local.entities.QuestionType
 import com.revyu.app.data.local.entities.DifficultyMix
+import com.revyu.app.data.local.entities.QuestionType
 import com.revyu.app.data.local.entities.ReviewerDetail
 import com.revyu.app.data.remote.ChatMessage
 import com.revyu.app.data.remote.GeneratedOutline
@@ -10,6 +10,17 @@ import kotlinx.serialization.json.Json
 
 object PromptBuilder {
   private val json = Json { encodeDefaults = true }
+
+  private val defaultAngles = listOf(
+    "definition recall",
+    "real-world scenario",
+    "compare/contrast",
+    "cause and effect",
+    "order of steps / process",
+    "which statement is FALSE",
+    "worked example / calculation",
+    "common misconception"
+  )
 
   fun buildOutlineMessages(
         subjectName: String,
@@ -70,9 +81,15 @@ object PromptBuilder {
     sourceText: String,
     language: String,
     count: Int,
-    outline: GeneratedOutline?
+    outline: GeneratedOutline?,
+    avoidFlashcardFronts: List<String> = emptyList(),
+    priorityTopics: List<String> = emptyList(),
+    angles: List<String> = defaultAngles
   ): List<ChatMessage> {
     val topics = outline?.let { json.encodeToString(it) } ?: "No outline supplied. Cover the source proportionally."
+    val avoidText = avoidFlashcardFronts.take(40).joinToString("\n") { "- ${it.take(90)}" }
+    val priorityText = if (priorityTopics.isEmpty()) "" else "Prioritize the least-covered topics first: ${priorityTopics.joinToString(", ")}."
+    val angleText = if (angles.isEmpty()) "" else "Use these angles in rotation: ${angles.joinToString(", ")}."
     return messages(
       system = """
         Generate exactly $count useful flashcards in $language. Return JSON only:
@@ -81,6 +98,8 @@ object PromptBuilder {
         Keep each back to about 25 words. Mix definitions, why/how, compare/contrast, processes, formulas,
         and cloze cards. Cover every topic, scaling card coverage with topic importance. Avoid duplicates
         and cards that only restate another card's answer. Use only source-supported facts.
+        Do NOT repeat or lightly reword any of these: ${avoidText.ifBlank { "none" }}. Test different facts or the same facts from a different angle.
+        $priorityText $angleText
       """.trimIndent(),
       subjectName = subjectName,
       sourceLabel = "Relevant source excerpts",
@@ -97,7 +116,10 @@ object PromptBuilder {
     questionTypes: List<QuestionType>,
     difficultyMix: DifficultyMix,
     outline: GeneratedOutline?,
-    vaultExamLabel: String? = null
+    vaultExamLabel: String? = null,
+    avoidQuestionPrompts: List<String> = emptyList(),
+    priorityTopics: List<String> = emptyList(),
+    angles: List<String> = defaultAngles
   ): List<ChatMessage> {
     val types = questionTypes.joinToString(", ") { it.name }
     val mix = when (difficultyMix) {
@@ -107,6 +129,9 @@ object PromptBuilder {
     }
     val topics = outline?.let { json.encodeToString(it) } ?: "No outline supplied. Cover the source proportionally."
     val vaultInstruction = vaultExamLabel?.let { "This is for a comprehensive $it assessment." }.orEmpty()
+    val avoidText = avoidQuestionPrompts.take(40).joinToString("\n") { "- ${it.take(90)}" }
+    val priorityText = if (priorityTopics.isEmpty()) "" else "Prioritize the least-covered topics first: ${priorityTopics.joinToString(", ")}."
+    val angleText = if (angles.isEmpty()) "" else "Rotate through these angles: ${angles.joinToString(", ")}."
     return messages(
       system = """
         Generate up to $maxQuestions questions in $language using only these types: $types. Return JSON only:
@@ -114,10 +139,12 @@ object PromptBuilder {
         Difficulty distribution: $mix. At least 30% APPLY/ANALYZE in Balanced. Choice distractors should be
         plausible, similar in grammar and length, and based on real misconceptions or neighboring source
         concepts. Never use "all of the above" or "none of the above". Avoid absolute giveaway words.
-                Set difficulty to 1 for easy, 2 for medium, and 3 for hard.
+        Set difficulty to 1 for easy, 2 for medium, and 3 for hard.
         Explain why the answer is right and, for choice questions, address the most tempting wrong option.
         For IDENTIFICATION and SHORT_ANSWER, include a canonical answer and 2-4 accepted variants.
         Cover every topic proportionally to its importance, vary question angles, and test distinct facts.
+        Do NOT repeat or lightly reword any of these: ${avoidText.ifBlank { "none" }}. Test different facts or the same facts from a different angle.
+        $priorityText $angleText
         SINGLE_CHOICE has 4 options and 1 correct option. MULTIPLE_CHOICE has 4-6 options and at least 2
         correct options. TRUE_FALSE has empty options and exactly True or False as its answer.
         IDENTIFICATION/SHORT_ANSWER have empty options. $vaultInstruction

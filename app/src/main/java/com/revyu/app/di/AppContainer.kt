@@ -85,7 +85,8 @@ class AppContainer(context: Context) {
             studySetDao = database.studySetDao(),
             flashcardDao = database.flashcardDao(),
             questionDao = database.questionDao(),
-            examAttemptDao = database.examAttemptDao()
+            examAttemptDao = database.examAttemptDao(),
+            materialDao = database.studyMaterialDao()
         )
     }
 

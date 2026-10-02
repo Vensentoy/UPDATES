@@ -1,10 +1,11 @@
 package com.revyu.app.data.repository
 
 import android.util.Log
+import com.revyu.app.core.util.GeneratedContentValidator
 import com.revyu.app.core.util.PdfReviewerRenderer
 import com.revyu.app.core.util.RevyuResult
-import com.revyu.app.core.util.GeneratedContentValidator
 import com.revyu.app.core.util.SourceChunker
+import com.revyu.app.core.util.StudyContentDeduper
 import com.revyu.app.data.local.dao.FlashcardDao
 import com.revyu.app.data.local.dao.QuestionDao
 import com.revyu.app.data.local.entities.DifficultyMix
@@ -13,6 +14,7 @@ import com.revyu.app.data.local.entities.GenerationStatus
 import com.revyu.app.data.local.entities.QuestionEntity
 import com.revyu.app.data.local.entities.QuestionType
 import com.revyu.app.data.local.entities.StudySetEntity
+import com.revyu.app.data.local.entities.StudySetKind
 import com.revyu.app.data.prompt.PromptBuilder
 import com.revyu.app.data.remote.ChatCompletionRequest
 import com.revyu.app.data.remote.GeneratedFlashcardsPayload
@@ -49,14 +51,38 @@ class GenerationRepository(
         sourceText: String,
         /** Non-null ("Midterm Exam" / "Final Exam") for a Semester Vault synthesis; null for a regular Study Set. */
         vaultExamLabel: String? = null,
+        rewriteReviewer: Boolean = false,
+        avoidFlashcardFronts: List<String> = emptyList(),
+        avoidQuestionPrompts: List<String> = emptyList(),
+        priorityTopics: List<String> = emptyList(),
+        angles: List<String> = defaultAngles,
         onProgress: (String) -> Unit = {}
     ): RevyuResult<StudySetEntity> {
         var current = studySet.copy(generationStatus = GenerationStatus.GENERATING, generationError = null)
+        val materialId = current.sourceMaterialId
+        val siblingStudySets = if (materialId != null && current.kind == StudySetKind.REGULAR) {
+            studySetRepository.getSiblingsForMaterial(current.subjectId, materialId)
+        } else {
+            emptyList()
+        }
+        val nextVariationIndex = siblingStudySets.size
+        current = current.copy(variationIndex = nextVariationIndex)
         studySetRepository.updateStudySet(current)
         var requestCount = 0
 
         suspend fun beforeRequest() {
             if (requestCount++ > 0) delay(INTER_REQUEST_DELAY_MILLIS)
+        }
+
+        val newestSibling = siblingStudySets.maxByOrNull { it.createdAt }
+        if (current.variationIndex > 0 && !rewriteReviewer && newestSibling != null && current.reviewerBodyText.isNullOrBlank()) {
+            current = current.copy(
+                outlineJson = newestSibling.outlineJson ?: current.outlineJson,
+                reviewerBlocksJson = newestSibling.reviewerBlocksJson,
+                reviewerBodyText = newestSibling.reviewerBodyText,
+                reviewerPdfPath = null
+            )
+            studySetRepository.updateStudySet(current)
         }
 
         var outline = decodeOutline(current.outlineJson)
@@ -68,6 +94,7 @@ class GenerationRepository(
                 val outcome = requestJson(
                     messages = PromptBuilder.buildOutlineMessages(subjectName, group, current.questionLanguage),
                     maxTokens = OUTLINE_MAX_TOKENS,
+                    temperature = generationTemperature(current.variationIndex),
                     decode = { json.decodeFromString<GeneratedOutline>(extractJsonObject(it)) }
                 )
                 if (outcome is RequestOutcome.Failure) return failForStep(current, STEP_OUTLINE, outcome)
@@ -91,6 +118,7 @@ class GenerationRepository(
                     subjectName, excerpts, current.questionLanguage, current.reviewerDetail, outline, vaultExamLabel
                 ),
                 maxTokens = REVIEWER_MAX_TOKENS,
+                temperature = generationTemperature(current.variationIndex),
                 decode = { json.decodeFromString<StructuredReviewer>(extractJsonObject(it)) }
             ).let { outcome ->
                 if (outcome is RequestOutcome.Success && outcome.value.sections.isEmpty() && outcome.value.overview.isBlank()) {
@@ -108,7 +136,7 @@ class GenerationRepository(
                 is RequestOutcome.Failure -> {
                     if (!reviewerOutcome.parseFailure) return failForStep(current, STEP_REVIEWER, reviewerOutcome)
                     beforeRequest()
-                    when (val plain = requestPlain(PromptBuilder.buildPlainReviewerMessages(subjectName, excerpts, current.questionLanguage))) {
+                    when (val plain = requestPlain(PromptBuilder.buildPlainReviewerMessages(subjectName, excerpts, current.questionLanguage), generationTemperature(current.variationIndex))) {
                         is RequestOutcome.Success -> {
                             reviewerJson = null
                             bodyText = plain.value
@@ -127,78 +155,228 @@ class GenerationRepository(
 
         if (flashcardDao.getForStudySetOnce(current.id).isEmpty()) {
             onProgress(STEP_FLASHCARDS)
-            beforeRequest()
-            val flashcardOutcome = requestJson(
-                messages = PromptBuilder.buildFlashcardMessages(
-                    subjectName, excerpts, current.questionLanguage, current.flashcardCount, outline
-                ),
-                maxTokens = FLASHCARD_MAX_TOKENS,
-                decode = { json.decodeFromString<GeneratedFlashcardsPayload>(extractJsonObject(it)) }
-            )
-            if (flashcardOutcome is RequestOutcome.Failure) return failForStep(current, STEP_FLASHCARDS, flashcardOutcome)
-            val generatedCards = (flashcardOutcome as RequestOutcome.Success).value.flashcards
-            val cards = GeneratedContentValidator.validFlashcards(generatedCards)
-            if (cards.size != generatedCards.size) {
-                Log.w(TAG, "Dropped ${generatedCards.size - cards.size} invalid flashcards")
-            }
-            val topicTitles = outline?.topics.orEmpty().associate { it.id to it.title }
-            val flashcardEntities = cards.mapIndexed { index, card ->
-                FlashcardEntity(
-                    studySetId = current.id,
-                    front = card.front.trim(),
-                    back = card.back.trim(),
-                    orderIndex = index,
-                    hint = card.hint.takeIf(String::isNotBlank),
-                    topicId = card.topicId,
-                    topicTitle = card.topicId?.let(topicTitles::get),
-                    difficulty = card.difficulty.coerceIn(1, 3),
-                    kind = card.kind
+            val siblingFlashcards: List<FlashcardEntity> = siblingStudySets.flatMap { flashcardDao.getForStudySetOnce(it.id) }
+            var survivingFlashcards = emptyList<FlashcardEntity>()
+            val initialFlashcards = runCatching {
+                beforeRequest()
+                val flashcardOutcome = requestJson(
+                    messages = PromptBuilder.buildFlashcardMessages(
+                        subjectName,
+                        excerpts,
+                        current.questionLanguage,
+                        current.flashcardCount,
+                        outline,
+                        avoidFlashcardFronts = avoidFlashcardFronts + siblingFlashcards.map { it.front },
+                        priorityTopics = priorityTopics,
+                        angles = angles
+                    ),
+                    maxTokens = FLASHCARD_MAX_TOKENS,
+                    temperature = generationTemperature(current.variationIndex),
+                    decode = { json.decodeFromString<GeneratedFlashcardsPayload>(extractJsonObject(it)) }
                 )
+                if (flashcardOutcome is RequestOutcome.Failure) return failForStep(current, STEP_FLASHCARDS, flashcardOutcome)
+                val generatedCards = (flashcardOutcome as RequestOutcome.Success).value.flashcards
+                val cards = GeneratedContentValidator.validFlashcards(generatedCards)
+                if (cards.size != generatedCards.size) {
+                    Log.w(TAG, "Dropped ${generatedCards.size - cards.size} invalid flashcards")
+                }
+                val topicTitles = outline?.topics.orEmpty().associate { it.id to it.title }
+                val flashcardEntities = cards.map { card ->
+                    FlashcardEntity(
+                        studySetId = current.id,
+                        front = card.front.trim(),
+                        back = card.back.trim(),
+                        orderIndex = 0,
+                        hint = card.hint.takeIf(String::isNotBlank),
+                        topicId = card.topicId,
+                        topicTitle = card.topicId?.let(topicTitles::get),
+                        difficulty = card.difficulty.coerceIn(1, 3),
+                        kind = card.kind
+                    )
+                }
+                StudyContentDeduper.filterFlashcards(
+                    flashcardEntities,
+                    siblingFlashcards + flashcardDao.getForStudySetOnce(current.id),
+                    front = { it.front }
+                )
+            }.getOrElse { emptyList() }
+            survivingFlashcards = initialFlashcards
+            if (survivingFlashcards.size.toDouble() < current.flashcardCount * 0.70) {
+                val missingFlashcards = maxOf(0, current.flashcardCount - survivingFlashcards.size)
+                if (missingFlashcards > 0) {
+                    val extendedAvoid = (avoidFlashcardFronts + siblingFlashcards.map { it.front } + survivingFlashcards.map { it.front }).distinct().take(40)
+                    beforeRequest()
+                    val topUpFlashcardOutcome = requestJson(
+                        messages = PromptBuilder.buildFlashcardMessages(
+                            subjectName,
+                            excerpts,
+                            current.questionLanguage,
+                            missingFlashcards,
+                            outline,
+                            avoidFlashcardFronts = extendedAvoid,
+                            priorityTopics = priorityTopics,
+                            angles = angles
+                        ),
+                        maxTokens = FLASHCARD_MAX_TOKENS,
+                        temperature = generationTemperature(current.variationIndex),
+                        decode = { json.decodeFromString<GeneratedFlashcardsPayload>(extractJsonObject(it)) }
+                    )
+                    if (topUpFlashcardOutcome is RequestOutcome.Failure) {
+                        Log.w(TAG, "Flashcard top-up failed: ${topUpFlashcardOutcome.message}")
+                    } else {
+                        val topUpCards = (topUpFlashcardOutcome as RequestOutcome.Success).value.flashcards
+                        val validTopUpCards = GeneratedContentValidator.validFlashcards(topUpCards)
+                        val topicTitles = outline?.topics.orEmpty().associate { it.id to it.title }
+                        val topUpFlashcardEntities = validTopUpCards.map { card ->
+                            FlashcardEntity(
+                                studySetId = current.id,
+                                front = card.front.trim(),
+                                back = card.back.trim(),
+                                orderIndex = 0,
+                                hint = card.hint.takeIf(String::isNotBlank),
+                                topicId = card.topicId,
+                                topicTitle = card.topicId?.let(topicTitles::get),
+                                difficulty = card.difficulty.coerceIn(1, 3),
+                                kind = card.kind
+                            )
+                        }
+                        val dedupedTopUpFlashcards = StudyContentDeduper.filterFlashcards(
+                            topUpFlashcardEntities,
+                            siblingFlashcards + survivingFlashcards,
+                            front = { it.front }
+                        )
+                        survivingFlashcards = (survivingFlashcards + dedupedTopUpFlashcards).distinctBy { it.front.trim() }
+                    }
+                }
+            }
+            val flashcardOverlapCount = (initialFlashcards.size + (if (survivingFlashcards.size > initialFlashcards.size) survivingFlashcards.size - initialFlashcards.size else 0)) - survivingFlashcards.size
+            Log.d(TAG, "Final overlap count: flashcards=$flashcardOverlapCount/${current.flashcardCount} (${if (current.flashcardCount == 0) 0.0 else flashcardOverlapCount.toDouble() / current.flashcardCount * 100.0}%)")
+            val topicTitles = outline?.topics.orEmpty().associate { it.id to it.title }
+            val flashcardEntities = survivingFlashcards.mapIndexed { index, card ->
+                card.copy(orderIndex = index)
             }
             if (flashcardEntities.isNotEmpty()) flashcardDao.insertAll(flashcardEntities)
         }
 
         if (questionDao.getForStudySetOnce(current.id).isEmpty()) {
             onProgress(STEP_QUESTIONS)
-            beforeRequest()
-            val questionOutcome = requestJson(
-                messages = PromptBuilder.buildQuestionMessages(
-                    subjectName,
-                    excerpts,
-                    current.questionLanguage,
-                    current.maxQuestions,
-                    current.questionTypes,
-                    current.difficultyMix,
-                    outline,
-                    vaultExamLabel
-                ),
-                maxTokens = QUESTION_MAX_TOKENS,
-                decode = { json.decodeFromString<GeneratedQuestionsPayload>(extractJsonObject(it)) }
-            )
-            if (questionOutcome is RequestOutcome.Failure) return failForStep(current, STEP_QUESTIONS, questionOutcome)
-            val generatedQuestions = (questionOutcome as RequestOutcome.Success).value.questions
-            val validQuestions = GeneratedContentValidator.validQuestions(generatedQuestions)
-                .filter { q -> runCatching { QuestionType.valueOf(q.type.uppercase()) }.getOrNull() in current.questionTypes }
-            if (validQuestions.size != generatedQuestions.size) {
-                Log.w(TAG, "Dropped ${generatedQuestions.size - validQuestions.size} invalid or unselected questions")
-            }
-            val topicTitles = outline?.topics.orEmpty().associate { it.id to it.title }
-            val questionEntities = validQuestions.mapIndexed { index, question ->
-                val type = QuestionType.valueOf(question.type.uppercase())
-                QuestionEntity(
-                    studySetId = current.id,
-                    type = type,
-                    prompt = question.prompt.trim(),
-                    options = question.options,
-                    correctAnswers = question.correctAnswers,
-                    orderIndex = index,
-                    acceptedAnswers = question.acceptedAnswers,
-                    explanation = question.explanation.takeIf(String::isNotBlank),
-                    topicId = question.topicId,
-                    topicTitle = question.topicId?.let(topicTitles::get),
-                    difficulty = question.difficulty.coerceIn(1, 3),
-                    level = question.level
+            val siblingQuestions = siblingStudySets.flatMap { studySetRepository.getQuestionsOnce(it.id) }
+            var survivingQuestions = emptyList<QuestionEntity>()
+            val initialQuestions = runCatching {
+                beforeRequest()
+                val questionOutcome = requestJson(
+                    messages = PromptBuilder.buildQuestionMessages(
+                        subjectName,
+                        excerpts,
+                        current.questionLanguage,
+                        current.maxQuestions,
+                        current.questionTypes,
+                        current.difficultyMix,
+                        outline,
+                        vaultExamLabel,
+                        avoidQuestionPrompts = avoidQuestionPrompts + siblingQuestions.map { it.prompt },
+                        priorityTopics = priorityTopics,
+                        angles = angles
+                    ),
+                    maxTokens = QUESTION_MAX_TOKENS,
+                    temperature = generationTemperature(current.variationIndex),
+                    decode = { json.decodeFromString<GeneratedQuestionsPayload>(extractJsonObject(it)) }
                 )
+                if (questionOutcome is RequestOutcome.Failure) return failForStep(current, STEP_QUESTIONS, questionOutcome)
+                val generatedQuestions = (questionOutcome as RequestOutcome.Success).value.questions
+                val validQuestions = GeneratedContentValidator.validQuestions(generatedQuestions)
+                    .filter { q -> runCatching { QuestionType.valueOf(q.type?.uppercase() ?: "") }.getOrNull() in current.questionTypes }
+                if (validQuestions.size != generatedQuestions.size) {
+                    Log.w(TAG, "Dropped ${generatedQuestions.size - validQuestions.size} invalid or unselected questions")
+                }
+                val topicTitles = outline?.topics.orEmpty().associate { it.id to it.title }
+                val questionEntities = validQuestions.map { question ->
+                    val type = QuestionType.valueOf(question.type?.uppercase() ?: "SINGLE_CHOICE")
+                    QuestionEntity(
+                        studySetId = current.id,
+                        type = type,
+                        prompt = question.prompt.trim(),
+                        options = question.options,
+                        correctAnswers = question.correctAnswers,
+                        orderIndex = 0,
+                        acceptedAnswers = question.acceptedAnswers,
+                        explanation = question.explanation.takeIf(String::isNotBlank),
+                        topicId = question.topicId,
+                        topicTitle = question.topicId?.let(topicTitles::get),
+                        difficulty = question.difficulty.coerceIn(1, 3),
+                        level = question.level
+                    )
+                }
+                StudyContentDeduper.filterQuestions(
+                    questionEntities,
+                    siblingQuestions + questionDao.getForStudySetOnce(current.id),
+                    prompt = { it.prompt },
+                    correctAnswers = { it.correctAnswers }
+                )
+            }.getOrElse { emptyList() }
+            survivingQuestions = initialQuestions
+            if (survivingQuestions.size.toDouble() < current.maxQuestions * 0.70) {
+                val missingQuestions = maxOf(0, current.maxQuestions - survivingQuestions.size)
+                if (missingQuestions > 0) {
+                    val extendedAvoid = (avoidQuestionPrompts + siblingQuestions.map { it.prompt } + survivingQuestions.map { it.prompt }).distinct().take(40)
+                    beforeRequest()
+                    val topUpQuestionOutcome = requestJson(
+                        messages = PromptBuilder.buildQuestionMessages(
+                            subjectName,
+                            excerpts,
+                            current.questionLanguage,
+                            missingQuestions,
+                            current.questionTypes,
+                            current.difficultyMix,
+                            outline,
+                            vaultExamLabel,
+                            avoidQuestionPrompts = extendedAvoid,
+                            priorityTopics = priorityTopics,
+                            angles = angles
+                        ),
+                        maxTokens = QUESTION_MAX_TOKENS,
+                        temperature = generationTemperature(current.variationIndex),
+                        decode = { json.decodeFromString<GeneratedQuestionsPayload>(extractJsonObject(it)) }
+                    )
+                    if (topUpQuestionOutcome is RequestOutcome.Failure) {
+                        Log.w(TAG, "Question top-up failed: ${topUpQuestionOutcome.message}")
+                    } else {
+                        val generatedTopUpQuestions = (topUpQuestionOutcome as RequestOutcome.Success).value.questions
+                        val validTopUpQuestions = GeneratedContentValidator.validQuestions(generatedTopUpQuestions)
+                            .filter { q -> runCatching { QuestionType.valueOf(q.type?.uppercase() ?: "") }.getOrNull() in current.questionTypes }
+                        val topicTitles = outline?.topics.orEmpty().associate { it.id to it.title }
+                        val topUpQuestionEntities = validTopUpQuestions.map { question ->
+                            val type = QuestionType.valueOf(question.type?.uppercase() ?: "SINGLE_CHOICE")
+                            QuestionEntity(
+                                studySetId = current.id,
+                                type = type,
+                                prompt = question.prompt.trim(),
+                                options = question.options,
+                                correctAnswers = question.correctAnswers,
+                                orderIndex = 0,
+                                acceptedAnswers = question.acceptedAnswers,
+                                explanation = question.explanation.takeIf(String::isNotBlank),
+                                topicId = question.topicId,
+                                topicTitle = question.topicId?.let(topicTitles::get),
+                                difficulty = question.difficulty.coerceIn(1, 3),
+                                level = question.level
+                            )
+                        }
+                        val dedupedTopUpQuestions = StudyContentDeduper.filterQuestions(
+                            topUpQuestionEntities,
+                            siblingQuestions + survivingQuestions,
+                            prompt = { it.prompt },
+                            correctAnswers = { it.correctAnswers }
+                        )
+                        survivingQuestions = (survivingQuestions + dedupedTopUpQuestions).distinctBy { it.prompt.trim() }
+                    }
+                }
+            }
+            val questionOverlapCount = (initialQuestions.size + (if (survivingQuestions.size > initialQuestions.size) survivingQuestions.size - initialQuestions.size else 0)) - survivingQuestions.size
+            Log.d(TAG, "Final overlap count: questions=$questionOverlapCount/${current.maxQuestions} (${if (current.maxQuestions == 0) 0.0 else questionOverlapCount.toDouble() / current.maxQuestions * 100.0}%)")
+            val topicTitles = outline?.topics.orEmpty().associate { it.id to it.title }
+            val questionEntities = survivingQuestions.mapIndexed { index, question ->
+                question.copy(orderIndex = index)
             }
             if (questionEntities.isNotEmpty()) questionDao.insertAll(questionEntities)
         }
@@ -234,11 +412,12 @@ class GenerationRepository(
     private suspend fun <T> requestJson(
         messages: List<com.revyu.app.data.remote.ChatMessage>,
         maxTokens: Int,
+        temperature: Double = 0.4,
         decode: (String) -> T
     ): RequestOutcome<T> {
         var lastFailure = RequestOutcome.Failure(RESPONSE_FORMAT_ERROR, parseFailure = true)
         for (attempt in 1..MAX_ATTEMPTS) {
-            val choice = when (val request = request(messages, maxTokens)) {
+            val choice = when (val request = request(messages, maxTokens, temperature)) {
                 is RequestOutcome.Failure -> return request
                 is RequestOutcome.Success -> request.value
             }
@@ -257,8 +436,11 @@ class GenerationRepository(
         return lastFailure
     }
 
-    private suspend fun requestPlain(messages: List<com.revyu.app.data.remote.ChatMessage>): RequestOutcome<String> =
-        when (val request = request(messages, PLAIN_REVIEWER_MAX_TOKENS, responseFormat = null)) {
+    private suspend fun requestPlain(
+        messages: List<com.revyu.app.data.remote.ChatMessage>,
+        temperature: Double = 0.4
+    ): RequestOutcome<String> =
+        when (val request = request(messages, PLAIN_REVIEWER_MAX_TOKENS, temperature, responseFormat = null)) {
             is RequestOutcome.Failure -> request
             is RequestOutcome.Success -> RequestOutcome.Success(request.value.message.content.trim())
         }
@@ -266,12 +448,14 @@ class GenerationRepository(
     private suspend fun request(
         messages: List<com.revyu.app.data.remote.ChatMessage>,
         maxTokens: Int,
+        temperature: Double = 0.4,
         responseFormat: com.revyu.app.data.remote.ResponseFormat? = com.revyu.app.data.remote.ResponseFormat()
     ): RequestOutcome<com.revyu.app.data.remote.ChatChoice> = try {
         val response = api.createChatCompletion(
             ChatCompletionRequest(
                 model = OpenRouterApi.MODEL_ID,
                 messages = messages,
+                temperature = temperature,
                 maxTokens = maxTokens,
                 responseFormat = responseFormat
             )
@@ -435,7 +619,19 @@ class GenerationRepository(
         return if (start >= 0 && end > start) noThink.substring(start, end + 1) else noThink
     }
 
+    private fun generationTemperature(variationIndex: Int): Double = if (variationIndex == 0) 0.4 else 0.75
+
     private companion object {
+        val defaultAngles = listOf(
+            "definition recall",
+            "real-world scenario",
+            "compare/contrast",
+            "cause and effect",
+            "order of steps / process",
+            "which statement is FALSE",
+            "worked example / calculation",
+            "common misconception"
+        )
         const val TAG = "GenerationRepository"
         const val MAX_ATTEMPTS = 2
         const val INTER_REQUEST_DELAY_MILLIS = 700L

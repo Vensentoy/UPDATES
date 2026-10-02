@@ -3,12 +3,14 @@ package com.revyu.app.data.repository
 import com.revyu.app.data.local.dao.ExamAttemptDao
 import com.revyu.app.data.local.dao.FlashcardDao
 import com.revyu.app.data.local.dao.QuestionDao
+import com.revyu.app.data.local.dao.StudyMaterialDao
 import com.revyu.app.data.local.dao.StudySetDao
 import com.revyu.app.data.local.entities.ExamAttemptEntity
 import com.revyu.app.data.local.entities.ExamStatus
 import com.revyu.app.data.local.entities.FlashcardEntity
 import com.revyu.app.data.local.entities.GenerationStatus
 import com.revyu.app.data.local.entities.QuestionEntity
+import com.revyu.app.data.local.entities.StudyMaterialEntity
 import com.revyu.app.data.local.entities.StudySetEntity
 import com.revyu.app.data.local.entities.StudySetKind
 import kotlinx.coroutines.flow.Flow
@@ -20,7 +22,8 @@ class StudySetRepository(
     private val studySetDao: StudySetDao,
     private val flashcardDao: FlashcardDao,
     private val questionDao: QuestionDao,
-    private val examAttemptDao: ExamAttemptDao
+    private val examAttemptDao: ExamAttemptDao,
+    private val materialDao: StudyMaterialDao
 ) {
     private val json = Json { ignoreUnknownKeys = true }
 
@@ -35,6 +38,23 @@ class StudySetRepository(
         studySetDao.getReadyByMaterialId(materialId)
 
     suspend fun getAllOnce(): List<StudySetEntity> = studySetDao.getAllOnce()
+
+    suspend fun getSiblingsForMaterial(subjectId: String, materialId: String): List<StudySetEntity> {
+        val material = materialDao.getById(materialId) ?: return emptyList()
+        val hash = material.contentHash ?: run {
+            val computed = material.extractedText.replace(Regex("\\s+"), " ").trim()
+            val digest = java.security.MessageDigest.getInstance("SHA-256")
+                .digest(computed.toByteArray(Charsets.UTF_8))
+            val contentHash = digest.joinToString("") { "%02x".format(it) }
+            materialDao.updateContentHash(material.id, contentHash)
+            contentHash
+        }
+        return studySetDao.getSiblings(subjectId, hash)
+            .filter { it.kind == StudySetKind.REGULAR && it.generationStatus == GenerationStatus.READY }
+    }
+
+    suspend fun getNextVariationIndex(subjectId: String, material: StudyMaterialEntity): Int =
+        getSiblingsForMaterial(subjectId, material.id).size
 
     fun observeAllStudySets(): Flow<List<StudySetEntity>> = studySetDao.observeAll()
 
