@@ -8,6 +8,7 @@ import androidx.room.Update
 import com.revyu.app.data.local.entities.ExamAttemptEntity
 import com.revyu.app.data.local.entities.FlashcardEntity
 import com.revyu.app.data.local.entities.QuestionEntity
+import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 
 @Dao
@@ -23,6 +24,9 @@ interface FlashcardDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(cards: List<FlashcardEntity>)
+
+    @Query("UPDATE flashcards SET mastery = :mastery, reviewCount = :reviewCount, lastReviewedAt = :lastReviewedAt, starred = :starred WHERE id = :id")
+    suspend fun updateProgress(id: String, mastery: Int, reviewCount: Int, lastReviewedAt: Instant?, starred: Boolean)
 }
 
 @Dao
@@ -38,6 +42,9 @@ interface QuestionDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(questions: List<QuestionEntity>)
+
+    @Query("UPDATE questions SET timesAsked = :timesAsked, timesCorrect = :timesCorrect, lastAskedAt = :lastAskedAt, lastCorrect = :lastCorrect WHERE id = :id")
+    suspend fun updateProgress(id: String, timesAsked: Int, timesCorrect: Int, lastAskedAt: Instant?, lastCorrect: Boolean?)
 }
 
 @Dao

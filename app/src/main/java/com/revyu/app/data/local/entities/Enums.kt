@@ -31,6 +31,14 @@ enum class ReviewerMargins {
     COMPACT, NORMAL, SPACIOUS
 }
 
+enum class ReviewerDetail {
+    CONCISE, STANDARD, DETAILED
+}
+
+enum class DifficultyMix {
+    EASIER, BALANCED, HARDER
+}
+
 enum class ReviewerFontStyle(val displayName: String) {
     SERIF("Serif"),
     SANS("Sans-serif"),

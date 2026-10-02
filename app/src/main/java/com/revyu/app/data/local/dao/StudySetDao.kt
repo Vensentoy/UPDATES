@@ -24,6 +24,29 @@ interface StudySetDao {
     @Query("SELECT * FROM study_sets WHERE sourceMaterialId = :materialId AND generationStatus = 'READY' LIMIT 1")
     suspend fun getReadyByMaterialId(materialId: String): StudySetEntity?
 
+    @Query("SELECT * FROM study_sets WHERE sourceMaterialId IN (:ids) AND generationStatus = 'READY' ORDER BY createdAt DESC")
+    suspend fun getReadySetsForMaterialIds(ids: List<String>): List<StudySetEntity>
+
+    @Query(
+        "SELECT study_sets.* FROM study_sets " +
+            "INNER JOIN study_materials ON study_sets.sourceMaterialId = study_materials.id " +
+            "WHERE study_sets.subjectId = :subjectId " +
+            "AND study_sets.generationStatus = 'READY' " +
+            "AND study_materials.contentHash = :contentHash " +
+            "ORDER BY study_sets.createdAt DESC"
+    )
+    fun observeSiblings(subjectId: String, contentHash: String): Flow<List<StudySetEntity>>
+
+    @Query(
+        "SELECT study_sets.* FROM study_sets " +
+            "INNER JOIN study_materials ON study_sets.sourceMaterialId = study_materials.id " +
+            "WHERE study_sets.subjectId = :subjectId " +
+            "AND study_sets.generationStatus = 'READY' " +
+            "AND study_materials.contentHash = :contentHash " +
+            "ORDER BY study_sets.createdAt DESC"
+    )
+    suspend fun getSiblings(subjectId: String, contentHash: String): List<StudySetEntity>
+
     @Query("SELECT * FROM study_sets")
     suspend fun getAllOnce(): List<StudySetEntity>
 

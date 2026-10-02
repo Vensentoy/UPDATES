@@ -1,6 +1,7 @@
 package com.revyu.app.data.local.entities
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -56,5 +57,15 @@ data class StudySetEntity(
 
     val examStatus: ExamStatus = ExamStatus.NOT_TAKEN,
 
-    val createdAt: Instant = Instant.now()
+    val createdAt: Instant = Instant.now(),
+    @ColumnInfo(defaultValue = "'STANDARD'")
+    val reviewerDetail: ReviewerDetail = ReviewerDetail.STANDARD,
+    @ColumnInfo(defaultValue = "20")
+    val flashcardCount: Int = 20,
+    @ColumnInfo(defaultValue = "'BALANCED'")
+    val difficultyMix: DifficultyMix = DifficultyMix.BALANCED,
+    @ColumnInfo(defaultValue = "0")
+    val variationIndex: Int = 0,
+    val reviewerBlocksJson: String? = null,
+    val outlineJson: String? = null
 )

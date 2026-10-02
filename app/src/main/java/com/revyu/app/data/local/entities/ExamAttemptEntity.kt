@@ -1,6 +1,7 @@
 package com.revyu.app.data.local.entities
 
 import androidx.room.Entity
+import androidx.room.ColumnInfo
 import androidx.room.ForeignKey
 import androidx.room.Index
 import androidx.room.PrimaryKey
@@ -29,5 +30,17 @@ data class ExamAttemptEntity(
     val totalQuestions: Int = 0,
     val correctCount: Int = 0,
     val incorrectCount: Int = 0,
-    val scorePercentage: Float = 0f
+    val scorePercentage: Float = 0f,
+    @ColumnInfo(defaultValue = "'[]'")
+    val questionOrderJson: String = "[]",
+    @ColumnInfo(defaultValue = "'{}'")
+    val optionOrderJson: String = "{}",
+    val timeLimitSeconds: Int? = null,
+    @ColumnInfo(defaultValue = "0")
+    val elapsedSeconds: Int = 0,
+    @ColumnInfo(defaultValue = "'[]'")
+    val flaggedJson: String = "[]",
+    @ColumnInfo(defaultValue = "'[]'")
+    val overridesJson: String = "[]",
+    val basedOnAttemptId: String? = null
 )

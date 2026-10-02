@@ -32,5 +32,6 @@ data class StudyMaterialEntity(
     val sourceType: SourceFileType,
     val extractedText: String,
     val characterCount: Int,
-    val uploadedAt: Instant = Instant.now()
+    val uploadedAt: Instant = Instant.now(),
+    val contentHash: String? = null
 )

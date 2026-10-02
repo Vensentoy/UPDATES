@@ -2,8 +2,10 @@ package com.revyu.app.data.local
 
 import androidx.room.TypeConverter
 import com.revyu.app.data.local.entities.ExamStatus
+import com.revyu.app.data.local.entities.DifficultyMix
 import com.revyu.app.data.local.entities.GenerationStatus
 import com.revyu.app.data.local.entities.QuestionType
+import com.revyu.app.data.local.entities.ReviewerDetail
 import com.revyu.app.data.local.entities.ReviewerFontStyle
 import com.revyu.app.data.local.entities.ReviewerMargins
 import com.revyu.app.data.local.entities.SourceFileType
@@ -75,6 +77,18 @@ class Converters {
 
     @TypeConverter
     fun toReviewerMargins(value: String): ReviewerMargins = ReviewerMargins.valueOf(value)
+
+    @TypeConverter
+    fun fromReviewerDetail(value: ReviewerDetail): String = value.name
+
+    @TypeConverter
+    fun toReviewerDetail(value: String): ReviewerDetail = ReviewerDetail.valueOf(value)
+
+    @TypeConverter
+    fun fromDifficultyMix(value: DifficultyMix): String = value.name
+
+    @TypeConverter
+    fun toDifficultyMix(value: String): DifficultyMix = DifficultyMix.valueOf(value)
 
     @TypeConverter
     fun fromSourceFileType(value: SourceFileType): String = value.name

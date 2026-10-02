@@ -41,7 +41,7 @@ import com.revyu.app.data.local.entities.SubjectEntity
         StudyLoadEntity::class,
         HomeWidgetPrefEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 @TypeConverters(Converters::class)
@@ -137,6 +137,49 @@ abstract class RevyuDatabase : RoomDatabase() {
             }
         }
 
+        /** v3 -> v4: Study Set generation metadata and learning progress. */
+        val MIGRATION_3_4 = object : Migration(3, 4) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE flashcards ADD COLUMN hint TEXT")
+                db.execSQL("ALTER TABLE flashcards ADD COLUMN topicId TEXT")
+                db.execSQL("ALTER TABLE flashcards ADD COLUMN topicTitle TEXT")
+                db.execSQL("ALTER TABLE flashcards ADD COLUMN difficulty INTEGER NOT NULL DEFAULT 2")
+                db.execSQL("ALTER TABLE flashcards ADD COLUMN kind TEXT NOT NULL DEFAULT 'TERM'")
+                db.execSQL("ALTER TABLE flashcards ADD COLUMN mastery INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE flashcards ADD COLUMN reviewCount INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE flashcards ADD COLUMN lastReviewedAt INTEGER")
+                db.execSQL("ALTER TABLE flashcards ADD COLUMN starred INTEGER NOT NULL DEFAULT 0")
+
+                db.execSQL("ALTER TABLE questions ADD COLUMN acceptedAnswers TEXT NOT NULL DEFAULT '[]'")
+                db.execSQL("ALTER TABLE questions ADD COLUMN explanation TEXT")
+                db.execSQL("ALTER TABLE questions ADD COLUMN topicId TEXT")
+                db.execSQL("ALTER TABLE questions ADD COLUMN topicTitle TEXT")
+                db.execSQL("ALTER TABLE questions ADD COLUMN difficulty INTEGER NOT NULL DEFAULT 2")
+                db.execSQL("ALTER TABLE questions ADD COLUMN level TEXT NOT NULL DEFAULT 'RECALL'")
+                db.execSQL("ALTER TABLE questions ADD COLUMN timesAsked INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE questions ADD COLUMN timesCorrect INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE questions ADD COLUMN lastAskedAt INTEGER")
+                db.execSQL("ALTER TABLE questions ADD COLUMN lastCorrect INTEGER")
+
+                db.execSQL("ALTER TABLE exam_attempts ADD COLUMN questionOrderJson TEXT NOT NULL DEFAULT '[]'")
+                db.execSQL("ALTER TABLE exam_attempts ADD COLUMN optionOrderJson TEXT NOT NULL DEFAULT '{}'")
+                db.execSQL("ALTER TABLE exam_attempts ADD COLUMN timeLimitSeconds INTEGER")
+                db.execSQL("ALTER TABLE exam_attempts ADD COLUMN elapsedSeconds INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE exam_attempts ADD COLUMN flaggedJson TEXT NOT NULL DEFAULT '[]'")
+                db.execSQL("ALTER TABLE exam_attempts ADD COLUMN overridesJson TEXT NOT NULL DEFAULT '[]'")
+                db.execSQL("ALTER TABLE exam_attempts ADD COLUMN basedOnAttemptId TEXT")
+
+                db.execSQL("ALTER TABLE study_materials ADD COLUMN contentHash TEXT")
+
+                db.execSQL("ALTER TABLE study_sets ADD COLUMN reviewerDetail TEXT NOT NULL DEFAULT 'STANDARD'")
+                db.execSQL("ALTER TABLE study_sets ADD COLUMN flashcardCount INTEGER NOT NULL DEFAULT 20")
+                db.execSQL("ALTER TABLE study_sets ADD COLUMN difficultyMix TEXT NOT NULL DEFAULT 'BALANCED'")
+                db.execSQL("ALTER TABLE study_sets ADD COLUMN variationIndex INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE study_sets ADD COLUMN reviewerBlocksJson TEXT")
+                db.execSQL("ALTER TABLE study_sets ADD COLUMN outlineJson TEXT")
+            }
+        }
+
         fun getInstance(context: Context): RevyuDatabase =
             INSTANCE ?: synchronized(this) {
                 INSTANCE ?: Room.databaseBuilder(
@@ -144,7 +187,7 @@ abstract class RevyuDatabase : RoomDatabase() {
                     RevyuDatabase::class.java,
                     "revyu.db"
                 )
-                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3)
+                    .addMigrations(MIGRATION_1_2, MIGRATION_2_3, MIGRATION_3_4)
                     // Safety net for as-yet-unforeseen future schema moves during active
                     // development; the real migration above is what users actually hit.
                     .fallbackToDestructiveMigration()
