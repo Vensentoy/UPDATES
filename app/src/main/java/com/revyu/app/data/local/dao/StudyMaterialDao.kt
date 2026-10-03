@@ -27,6 +27,9 @@ interface StudyMaterialDao {
     @Query("UPDATE study_materials SET contentHash = :contentHash WHERE id = :id")
     suspend fun updateContentHash(id: String, contentHash: String)
 
+    @Query("DELETE FROM study_materials WHERE id = :id")
+    suspend fun deleteById(id: String)
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(material: StudyMaterialEntity): Long
 }

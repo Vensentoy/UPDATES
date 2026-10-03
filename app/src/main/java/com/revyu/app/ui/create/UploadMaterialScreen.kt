@@ -16,9 +16,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -88,10 +90,43 @@ fun UploadMaterialScreen(
                     }
                 )
                 is UploadUiState.ExistingStudySetsFound -> {
-                    LaunchedEffect(upload.latestStudySetId) {
-                        onOpenExistingStudySet(upload.latestStudySetId)
+                    AlertDialog(
+                        onDismissRequest = {
+                            viewModel.dismissUploadState()
+                        },
+                        title = { Text("Existing Study Sets") },
+                        text = {
+                            Text("You already have ${upload.count} ${if (upload.count == 1) "Study Set" else "Study Sets"} from this file.")
+                        },
+                        confirmButton = {
+                            TextButton(onClick = {
+                                viewModel.dismissUploadState()
+                                onNext()
+                            }) {
+                                Text("Create a new variation", maxLines = 1)
+                            }
+                        },
+                        dismissButton = {
+                            TextButton(onClick = {
+                                onOpenExistingStudySet(upload.latestStudySetId)
+                            }) {
+                                Text("Open latest", maxLines = 1)
+                            }
+                        }
+                    )
+
+                    PrimaryButton(
+                        text = "Choose file",
+                        onClick = { filePicker.launch(arrayOf("*/*")) },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+
+                    viewModel.selectedMaterial?.let { selected ->
+                        Spacer(Modifier.height(16.dp))
+                        Text("Selected", style = MaterialTheme.typography.labelLarge)
+                        Spacer(Modifier.height(6.dp))
+                        MaterialRow(material = selected, isSelected = true, onClick = {})
                     }
-                    LoadingState("Opening existing Study Set…")
                 }
                 is UploadUiState.Failed -> {
                     ErrorBanner(upload.message)

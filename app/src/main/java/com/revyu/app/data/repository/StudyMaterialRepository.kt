@@ -25,6 +25,13 @@ class StudyMaterialRepository(
     suspend fun getByFileName(subjectId: String, fileName: String): StudyMaterialEntity? =
         dao.getByFileName(subjectId, fileName)
 
+    suspend fun getByContentHash(subjectId: String, contentHash: String): List<StudyMaterialEntity> =
+        dao.getByContentHash(subjectId, contentHash)
+
+    suspend fun deleteMaterial(id: String) {
+        dao.deleteById(id)
+    }
+
     suspend fun ensureContentHash(material: StudyMaterialEntity): StudyMaterialEntity {
         val hash = material.contentHash ?: computeContentHash(material.extractedText)
         if (material.contentHash != hash) {

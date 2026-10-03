@@ -10,6 +10,7 @@ import com.revyu.app.core.util.ExtractionStatus
 import com.revyu.app.core.util.RevyuResult
 import com.revyu.app.core.util.UriUtils
 import com.revyu.app.data.local.entities.DifficultyMix
+import com.revyu.app.data.local.entities.GenerationStatus
 import com.revyu.app.data.local.entities.QuestionType
 import com.revyu.app.data.local.entities.ReviewerDetail
 import com.revyu.app.data.local.entities.ReviewerFontStyle
@@ -122,54 +123,43 @@ class CreateStudySetViewModel(
         uploadStatus = ExtractionStatus.Reading
         viewModelScope.launch {
             try {
-                val existingMaterial = studyMaterialRepository.getByFileName(subjectId, fileName)
-                if (existingMaterial != null) {
-                    // Check if content hash matches - if not, treat as new material
-                    val newContentHash = computeContentHash(uri)
-                    if (existingMaterial.contentHash != null && existingMaterial.contentHash == newContentHash) {
-                        // Same content - check for sibling study sets
-                        val siblings = studySetRepository.getSiblingsForMaterial(subjectId, existingMaterial.id)
-                        if (siblings.isNotEmpty()) {
-                            val latest = siblings.maxByOrNull { it.createdAt }!!
-                            selectedMaterial = existingMaterial
-                            variationIndex = siblings.size
-                            uploadState = UploadUiState.ExistingStudySetsFound(
-                                count = siblings.size,
-                                latestStudySetId = latest.id
-                            )
-                            return@launch
-                        } else {
-                            selectedMaterial = existingMaterial
-                            uploadWarning = "Re-using previously extracted content for $fileName."
-                            uploadState = UploadUiState.Idle
-                            return@launch
-                        }
-                    } else {
-                        // Same filename but different content - treat as new material
-                        uploadWarning = "File name matches an existing upload, but content differs. Creating new material."
-                    }
-                }
-
                 val result = studyMaterialRepository.uploadAndExtract(subjectId, uri, fileName) { uploadStatus = it }
-                selectedMaterial = result.material
-                uploadWarning = result.warning
-                uploadState = UploadUiState.Idle
+                val newMaterial = result.material
+                val contentHash = newMaterial.contentHash ?: computeContentHashForText(newMaterial.extractedText)
+
+                val existingOtherMaterial = studyMaterialRepository.getByContentHash(subjectId, contentHash)
+                    .firstOrNull { it.id != newMaterial.id }
+
+                val siblings = if (existingOtherMaterial != null) {
+                    studySetRepository.getSiblingsForMaterial(subjectId, existingOtherMaterial.id)
+                } else emptyList()
+
+                if (existingOtherMaterial != null && siblings.isNotEmpty()) {
+                    studyMaterialRepository.deleteMaterial(newMaterial.id)
+                    val latest = siblings.maxByOrNull { it.createdAt }!!
+                    selectedMaterial = existingOtherMaterial
+                    variationIndex = siblings.size
+                    uploadState = UploadUiState.ExistingStudySetsFound(
+                        count = siblings.size,
+                        latestStudySetId = latest.id
+                    )
+                } else {
+                    selectedMaterial = newMaterial
+                    variationIndex = 0
+                    uploadWarning = result.warning
+                    uploadState = UploadUiState.Idle
+                }
             } catch (e: Exception) {
                 uploadState = UploadUiState.Failed(e.message ?: "Couldn't read that file.")
             }
         }
     }
 
-    private suspend fun computeContentHash(uri: Uri): String {
-        return withContext(Dispatchers.IO) {
-            val inputStream = context.contentResolver.openInputStream(uri) ?: return@withContext ""
-            val text = inputStream.bufferedReader().readText()
-            inputStream.close()
-            val normalized = text.replace(Regex("\\s+"), " ").trim()
-            val digest = java.security.MessageDigest.getInstance("SHA-256")
-                .digest(normalized.toByteArray(Charsets.UTF_8))
-            digest.joinToString("") { "%02x".format(it) }
-        }
+    private fun computeContentHashForText(text: String): String {
+        val normalized = text.replace(Regex("\\s+"), " ").trim()
+        val digest = MessageDigest.getInstance("SHA-256")
+            .digest(normalized.toByteArray(Charsets.UTF_8))
+        return digest.joinToString("") { "%02x".format(it) }
     }
 
     fun selectExistingMaterial(material: StudyMaterialEntity) {
@@ -184,8 +174,15 @@ class CreateStudySetViewModel(
                     count = siblings.size,
                     latestStudySetId = latest.id
                 )
+            } else {
+                variationIndex = 0
+                uploadState = UploadUiState.Idle
             }
         }
+    }
+
+    fun dismissUploadState() {
+        uploadState = UploadUiState.Idle
     }
 
     fun applyReviewerColumns(columns: Int) { reviewerColumns = columns }
@@ -224,7 +221,11 @@ class CreateStudySetViewModel(
         generationState = GenerationUiState.InProgress
         generationStep = "Reading your file"
         viewModelScope.launch {
-            val title = "${SimpleDateFormat("MMM d", Locale.getDefault()).format(Date())} — ${material.fileName}"
+            val title = if (variationIndex > 0) {
+                "${SimpleDateFormat("MMM d", Locale.getDefault()).format(Date())} — ${material.fileName} · v${variationIndex + 1}"
+            } else {
+                "${SimpleDateFormat("MMM d", Locale.getDefault()).format(Date())} — ${material.fileName}"
+            }
             val studySet = activeGenerationStudySet
                 ?.takeIf { it.sourceMaterialId == material.id }
                 ?: StudySetEntity(
@@ -235,6 +236,10 @@ class CreateStudySetViewModel(
                     reviewerFontStyle = reviewerFontStyle,
                     reviewerFontSizeSp = reviewerFontSizeSp,
                     reviewerMargins = reviewerMargins,
+                    reviewerDetail = reviewerDetail,
+                    flashcardCount = flashcardCount,
+                    difficultyMix = difficultyMix,
+                    variationIndex = variationIndex,
                     questionLanguage = "English",
                     maxQuestions = maxQuestions,
                     questionTypes = selectedQuestionTypes.toList()
@@ -247,6 +252,7 @@ class CreateStudySetViewModel(
                 studySet = studySet,
                 subjectName = subjectName,
                 sourceText = material.extractedText,
+                rewriteReviewer = rewriteReviewer,
                 onProgress = { generationStep = it }
             )) {
                 is RevyuResult.Success -> {

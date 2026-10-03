@@ -17,12 +17,15 @@ import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.tooling.preview.Preview
 import com.revyu.app.core.theme.RevyuTheme
+import com.revyu.app.data.local.entities.ReviewerDetail
 import com.revyu.app.data.local.entities.ReviewerFontStyle
 import com.revyu.app.data.local.entities.ReviewerMargins
 import com.revyu.app.ui.components.PrimaryButton
@@ -40,10 +43,15 @@ fun CustomizeReviewerScreen(
         reviewerFontStyle = viewModel.reviewerFontStyle,
         reviewerFontSizeSp = viewModel.reviewerFontSizeSp,
         reviewerMargins = viewModel.reviewerMargins,
+        reviewerDetail = viewModel.reviewerDetail,
+        isVariation = viewModel.variationIndex > 0,
+        rewriteReviewer = viewModel.rewriteReviewer,
         onApplyColumns = { viewModel.applyReviewerColumns(it) },
         onApplyFontStyle = { viewModel.applyReviewerFontStyle(it) },
         onSetFontSize = { viewModel.setReviewerFontSize(it) },
         onApplyMargins = { viewModel.applyReviewerMargins(it) },
+        onApplyDetail = { viewModel.applyReviewerDetail(it) },
+        onApplyRewriteReviewer = { viewModel.applyRewriteReviewer(it) },
         onNext = onNext,
         onBack = onBack
     )
@@ -56,10 +64,15 @@ fun CustomizeReviewerContent(
     reviewerFontStyle: ReviewerFontStyle,
     reviewerFontSizeSp: Int,
     reviewerMargins: ReviewerMargins,
+    reviewerDetail: ReviewerDetail = ReviewerDetail.STANDARD,
+    isVariation: Boolean = false,
+    rewriteReviewer: Boolean = false,
     onApplyColumns: (Int) -> Unit,
     onApplyFontStyle: (ReviewerFontStyle) -> Unit,
     onSetFontSize: (Int) -> Unit,
     onApplyMargins: (ReviewerMargins) -> Unit,
+    onApplyDetail: (ReviewerDetail) -> Unit = {},
+    onApplyRewriteReviewer: (Boolean) -> Unit = {},
     onNext: () -> Unit,
     onBack: () -> Unit
 ) {
@@ -79,6 +92,47 @@ fun CustomizeReviewerContent(
             WizardStepHeader(step = 2, total = 4, title = "Customize your Reviewer")
             Spacer(Modifier.height(20.dp))
 
+            SettingLabel("Detail level")
+            ChipGroup {
+                ReviewerDetail.entries.forEach { detail ->
+                    FilterChip(
+                        selected = reviewerDetail == detail,
+                        onClick = { onApplyDetail(detail) },
+                        label = {
+                            Text(
+                                detail.name.lowercase().replaceFirstChar { c -> c.uppercase() },
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    )
+                }
+            }
+
+            if (isVariation) {
+                Spacer(Modifier.height(20.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f).padding(end = 16.dp)) {
+                        Text("Also rewrite the reviewer", style = MaterialTheme.typography.titleSmall)
+                        Spacer(Modifier.height(2.dp))
+                        Text(
+                            "By default, variations reuse the existing reviewer to save generation time.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                    Switch(
+                        checked = rewriteReviewer,
+                        onCheckedChange = onApplyRewriteReviewer
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
             SettingLabel("Layout")
             ChipGroup {
                 listOf(1, 2, 3, 4).forEach { columns ->

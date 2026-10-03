@@ -3,13 +3,14 @@ package com.revyu.app.ui.create
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.windowInsetsPadding
@@ -24,7 +25,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import com.revyu.app.data.local.entities.DifficultyMix
 import com.revyu.app.data.local.entities.QuestionType
+import com.revyu.app.ui.components.ChipGroup
 import com.revyu.app.ui.components.PrimaryButton
 import com.revyu.app.ui.components.SecondaryButton
 
@@ -44,40 +47,78 @@ fun CustomizePracticeScreen(
             .padding(horizontal = 24.dp)
             .padding(top = 24.dp, bottom = 24.dp)
     ) {
-        WizardStepHeader(step = 3, total = 4, title = "Customize practice questions")
-        Spacer(Modifier.height(20.dp))
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .verticalScroll(rememberScrollState())
+        ) {
+            WizardStepHeader(step = 3, total = 4, title = "Customize practice questions")
+            Spacer(Modifier.height(20.dp))
 
-        Text("Language", style = MaterialTheme.typography.titleSmall)
-        Spacer(Modifier.height(4.dp))
-        Text(
-            "English (Taglish support is coming later)",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+            SettingLabel("Language")
+            Text(
+                "English (Taglish support is coming later)",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
-        Spacer(Modifier.height(20.dp))
-        Text("Maximum questions — ${viewModel.maxQuestions}", style = MaterialTheme.typography.titleSmall)
-        Slider(
-            value = viewModel.maxQuestions.toFloat(),
-            onValueChange = { viewModel.applyMaxQuestions(it.toInt()) },
-            valueRange = 5f..40f,
-            steps = 6
-        )
+            Spacer(Modifier.height(20.dp))
+            SettingLabel("Flashcards — ${viewModel.flashcardCount}")
+            Slider(
+                value = viewModel.flashcardCount.toFloat(),
+                onValueChange = { viewModel.applyFlashcardCount(((it + 2.5f) / 5).toInt() * 5) },
+                valueRange = 10f..60f,
+                steps = 9
+            )
 
-        Spacer(Modifier.height(12.dp))
-        Text("Question types", style = MaterialTheme.typography.titleSmall)
-        Spacer(Modifier.height(8.dp))
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            QuestionType.entries.forEach { type ->
-                FilterChip(
-                    selected = type in viewModel.selectedQuestionTypes,
-                    onClick = { viewModel.toggleQuestionType(type) },
-                    label = { Text(type.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.uppercase() }) }
-                )
+            Spacer(Modifier.height(20.dp))
+            SettingLabel("Question bank size — ${viewModel.maxQuestions}")
+            Slider(
+                value = viewModel.maxQuestions.toFloat(),
+                onValueChange = { viewModel.applyMaxQuestions(((it + 2.5f) / 5).toInt() * 5) },
+                valueRange = 10f..60f,
+                steps = 9
+            )
+
+            Spacer(Modifier.height(20.dp))
+            SettingLabel("Difficulty")
+            ChipGroup {
+                DifficultyMix.entries.forEach { mix ->
+                    FilterChip(
+                        selected = viewModel.difficultyMix == mix,
+                        onClick = { viewModel.applyDifficultyMix(mix) },
+                        label = {
+                            Text(
+                                mix.name.lowercase().replaceFirstChar { c -> c.uppercase() },
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(20.dp))
+            SettingLabel("Question types")
+            ChipGroup {
+                QuestionType.entries.forEach { type ->
+                    FilterChip(
+                        selected = type in viewModel.selectedQuestionTypes,
+                        onClick = { viewModel.toggleQuestionType(type) },
+                        label = {
+                            Text(
+                                type.name.replace("_", " ").lowercase().replaceFirstChar { c -> c.uppercase() },
+                                maxLines = 1,
+                                softWrap = false
+                            )
+                        }
+                    )
+                }
             }
         }
 
-        Spacer(Modifier.weight(1f))
+        Spacer(Modifier.height(16.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             SecondaryButton(text = "Back", onClick = onBack, modifier = Modifier.weight(1f))
             PrimaryButton(
@@ -93,4 +134,10 @@ fun CustomizePracticeScreen(
             )
         }
     }
+}
+
+@Composable
+private fun SettingLabel(text: String) {
+    Text(text, style = MaterialTheme.typography.titleSmall)
+    Spacer(Modifier.height(4.dp))
 }
